@@ -1,0 +1,4 @@
+# AirMCP Solo dependencies
+# Core server uses stdlib only - these are for LLM bridge drivers
+requests>=2.31.0
+python-dotenv>=1.0.0

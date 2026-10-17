@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Kopi Senja">
+  <circle cx="32" cy="32" r="32" fill="#6f4e37"/>
+  <path d="M20 26 h20 v14 a10 10 0 0 1 -20 0 z" fill="#f7f1e8"/>
+  <path d="M40 29 a7 7 0 0 1 0 12" fill="none" stroke="#f7f1e8" stroke-width="4"/>
+  <ellipse cx="30" cy="26" rx="9" ry="3" fill="#c9a227"/>
+</svg>

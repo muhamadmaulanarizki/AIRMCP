@@ -1,0 +1,30 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+providers.json
+agents.json
+projects.json
+state.json
+
+# Local runtime data
+.venv/
+__pycache__/
+*.py[cod]
+*.log
+tools.db
+*.sqlite
+*.sqlite3
+**/.mcp/notes/
+
+# Local projects that are not part of this repository
+/nas-integration/
+/uji-orch/
+/web_landing_page/
+/fib.py
+
+# Editor / OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,106 @@
+=================================================
+  MULAI DI SINI - 3 LANGKAH SAJA
+=================================================
+
+[LANGKAH 1] Buka dashboard visual
+   Double-click file: mcp.bat
+   -> pilih angka 1 (Web Dashboard)
+   -> browser kebuka sendiri
+   -> COBA: klik tool "list_files" -> klik tombol
+      "demo-erp path" -> klik EXECUTE
+      hasilnya keluar di bawah. SELESAI, paham.
+
+[LANGKAH 2] Pakai di opencode (yang sudah connect)
+   Buka opencode, ketik seperti ngobrol biasa:
+
+      "list file di folder demo-erp"
+
+   AI otomatis panggil tool-nya dan jawab.
+   Kamu TIDAK perlu tahu tool apa. Ngomong aja.
+
+[LANGKAH 3] Contoh percakapan lain (tinggal copy-paste)
+
+   "baca file purchase_orders.csv di demo-erp"
+   "berapa total PO approved per vendor?"
+   "jalankan route:list di folder [path project ibt-one]"
+
+=================================================
+  ITU SAJA. Gw baru pakai 2 kemampuan:
+  lihat folder + baca file.
+  Sisanya (execute command, query database,
+  generate CRUD) dipakai waktu lo butuh.
+=================================================
+
+
+=================================================
+  PROMPT PER PROJECT (fitur baru)
+=================================================
+
+KONSEP:
+  Tiap project punya folder .mcp\prompts\ berisi file .md.
+  Tiap file otomatis jadi 1 prompt bernama "<project>/<nama-file>".
+
+CARA BUAT (pilih 1):
+  a) Manual: buat file
+       <project>\.mcp\prompts\nama-prompt.md
+  b) Minta AI di opencode:
+       "bikin prompt project demo-erp: cek-stok,
+        args gudang,barang"
+
+CARA JALANIN:
+  - Dashboard -> tab Prompts -> klik prompt -> isi arg -> EXECUTE
+  - opencode  -> ketik: "pakai prompt demo-erp/buat-migration
+                 untuk tabel vendors"
+  - CLI       -> python client.py prompts
+                 python client.py get-prompt "demo-erp/buat-migration"
+                        "table=vendors" "fields=nama:string"
+
+DAFTAR PROJECT (registry): edit file  projects.json
+  (tambah project lain -> prompt-nya langsung kebaca)
+
+Contoh prompt siap pakai ada di:
+  demo-erp\.mcp\prompts\  (buat-migration, analisa-po, cek-stok)
+=================================================
+
+
+=================================================
+  ORCHESTRATOR - BANYAK AI AGENT KERJA BARENG
+=================================================
+
+GAGASAN:
+  Beberapa "agen" (model AI beda-beda) mengerjakan 1 project
+  bersama: satu merancang, satu ngoding, satu review.
+  Semua DINAMIS: agen & model bisa ditambah/hapus dari dashboard.
+
+3 MODE:
+  pipeline   = agen berurutan (hasil diteruskan ke berikutnya)
+  debate     = agen berdiskusi beberapa ronde
+  supervisor = 1 lead atur rencana -> worker kerjakan -> lead rangkum
+
+CARA PAKAI (dashboard):
+  mcp.bat -> 1 -> tab "Orchestrate"
+  -> pilih Project (path OTOMATIS keisi)
+  -> tulis Tugas -> centang agen -> pilih mode -> RUN TEAM
+  -> muncul VISUAL 2D: node agen + animasi pesan antar agen
+  -> tombol REPLAY untuk memutar ulang alurnya
+
+TAB "Agents"   : tambah/ubah/hapus agen (nama, provider, peran, tool)
+TAB "Providers": tambah model AI (base_url + env key + model), mis. opencode-go
+
+AUTO PATH:
+  Pilih dari dropdown ATAU ketik bebas di "Auto path" (mis. "demo erp")
+  lalu RESOLVE -> path ketemu otomatis dari projects.json
+
+PENTING - STATUS LIVE:
+  Provider "opencode-go" sudah AKTIF (tipe CLI: `opencode run -m
+  opencode-go/deepseek-v4.1-flash`). Jadi agen langsung LIVE sungguhan.
+  Kalau tidak ada provider aktif sama sekali -> otomatis MODE SIMULASI.
+  Tambah/hapus model lain di tab "Providers" (bisa tipe http atau cli).
+  CATATAN: agen memakai opencode sungguhan -> BISA membaca/mengedit file
+  project (terbukti: agen coder mengedit file demo-erp saat diuji).
+
+CLI:
+  python client.py call orchestrate "task=buat fitur vendor" "project=demo-erp" "mode=pipeline" "simulate=true"
+  python client.py call provider_list
+  python client.py call agent_list
+=================================================
