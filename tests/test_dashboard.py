@@ -13,26 +13,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
-def kill_stale_listeners(port):
-    """Kill leftover processes listening on port (Windows: netstat + taskkill)."""
-    try:
-        out = subprocess.run(
-            f"netstat -ano -p tcp", shell=True, capture_output=True, text=True, timeout=15
-        ).stdout
-        for line in out.splitlines():
-            parts = line.split()
-            if len(parts) >= 5 and parts[0] == "TCP" and parts[1].endswith(f":{port}") \
-                    and parts[3] == "LISTENING":
-                pid = parts[4]
-                subprocess.run(["taskkill", "/F", "/PID", pid],
-                               capture_output=True, text=True, timeout=10)
-                print(f"  (killed stale listener PID {pid})")
-    except Exception as e:  # noqa: BLE001
-        print(f"  (stale check skipped: {e})")
-
-
 def main():
-    kill_stale_listeners(PORT)
     proc = subprocess.Popen(
         [sys.executable, "-u", os.path.join(ROOT, "dashboard.py")],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

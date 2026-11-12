@@ -463,6 +463,9 @@ class Handler(BaseHTTPRequestHandler):
         """Server-streaming orchestrate: emit NDJSON per turn (real-time)."""
         import orchestrator as orch
         from mcp_server import _local_tool_executor, _tools_spec
+        if not security_policy.tool_allowed("orchestrate"):
+            self._send_json({"error": "orchestrate is disabled in production mode"}, 403)
+            return
         self.send_response(200)
         self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
         self.send_header("Cache-Control", "no-cache")

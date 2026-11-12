@@ -42,6 +42,12 @@ DEFAULTS = {
         "api_key_env": "OPENCODE_GO_API_KEY",
         "model": "deepseek-v4.1-flash",
     },
+    "opencode": {
+        "title": "OpenCode CLI",
+        "kind": "cli",
+        "command": ["opencode", "run"],
+        "model": "opencode/beam-free",
+    },
 }
 
 
@@ -187,9 +193,18 @@ def _chat_cli(prov, messages, timeout=240, model=None):
     model = model or prov.get("model")
     cwd = prov.get("cwd") or ROOT
     argv = list(cmd)
+    argv[0] = shutil.which(str(argv[0])) or argv[0]
+    # npm's Windows .CMD shim can stall when a prompt contains newlines.
+    # Use the packaged executable directly when that shim is what PATH found.
+    if os.name == "nt" and os.path.basename(str(argv[0])).lower() == "opencode.cmd":
+        packaged = os.path.join(os.path.dirname(argv[0]), "node_modules", "@opencode", "cli", "bin", "opencode.exe")
+        if os.path.isfile(packaged):
+            argv[0] = packaged
+        else:
+            raise RuntimeError("OpenCode CLI executable not found beside the Windows npm shim; configure its full executable path")
     # OpenCode's shared service may be owned by another session or its configured
     # port may already be occupied. A private server keeps this invocation isolated.
-    opencode_run = os.path.basename(str(argv[0])).lower() in {"opencode", "opencode.exe"} and "run" in argv
+    opencode_run = os.path.splitext(os.path.basename(str(argv[0])))[0].lower() == "opencode" and "run" in argv
     if opencode_run:
         run_index = argv.index("run") + 1
         if not any(flag in argv for flag in ("--server", "--standalone")):

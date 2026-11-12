@@ -23,6 +23,13 @@ def main():
     try:
         names = {p["name"] for p in providers.provider_defs()}
         check("defaults present", {"openai", "deepseek", "hermes"} <= names)
+        providers.PROVIDERS_PATH = path + ".missing-test"
+        try:
+            default_cli = providers.get_provider("opencode") or {}
+            check("fresh install has OpenCode CLI", default_cli.get("command") == ["opencode", "run"]
+                  and default_cli.get("model") == "opencode/beam-free")
+        finally:
+            providers.PROVIDERS_PATH = path
 
         r = providers.upsert_provider("tmp-prov", "Tmp", "https://x/v1/chat", "TMP_KEY", "m1")
         check("upsert returns saved", r.get("saved") is True)

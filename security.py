@@ -10,6 +10,7 @@ DANGEROUS_TOOLS = {
     "exec_cmd", "web_fetch", "artisan", "composer", "mysql_query",
     "scaffold_crud", "project_create", "project_register",
     "provider_create", "provider_delete",
+    "agent_run", "orchestrate", "llm_chat", "doc_generate",
 }
 SENSITIVE_NAMES = {
     ".env", "providers.json", "id_rsa", "id_ed25519",

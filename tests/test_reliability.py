@@ -85,6 +85,18 @@ class ReliabilityTests(unittest.TestCase):
         self.assertIn("--standalone", run.call_args.args[0])
         self.assertEqual(run.call_args.args[0][2:4], ["--format", "json"])
 
+    @unittest.skipUnless(os.name == "nt", "Windows npm shim only")
+    def test_opencode_windows_shim_uses_packaged_executable(self):
+        from types import SimpleNamespace
+        config = {"command": ["opencode", "run"], "model": "opencode/beam-free"}
+        output = json.dumps({"type": "text", "part": {"text": "ok"}})
+        with patch.object(providers.shutil, "which", return_value="C:/npm/opencode.CMD"), \
+                patch.object(providers.os.path, "isfile", return_value=True), \
+                patch("subprocess.run", return_value=SimpleNamespace(returncode=0, stdout=output, stderr="")) as run:
+            self.assertEqual(providers._chat_cli(config, [{"role": "user", "content": "hello"}])["content"], "ok")
+        self.assertTrue(run.call_args.args[0][0].lower().endswith("opencode.exe"))
+        self.assertIn("--standalone", run.call_args.args[0])
+
     def test_opencode_tool_events_are_observed(self):
         output = "\n".join(json.dumps(event) for event in [
             {"type": "tool_use", "part": {"tool": "execute", "state": {
@@ -153,7 +165,7 @@ class HttpTests(unittest.TestCase):
         for path, key in (("/api/server","protocolVersion"), ("/api/tools","tools"),
                           ("/api/resources","resources"), ("/api/prompts","prompts")):
             self.assertIn(key, json.loads(self.request(path)))
-        self.assertIn(b"Navigasi utama", self.request("/"))
+        self.assertIn(b'aria-label="Main navigation"', self.request("/"))
 
     def test_reject_non_object(self):
         import urllib.error

@@ -74,8 +74,28 @@ def main():
         assert ready["status"] == "ready"
         response, tools = get("/api/tools")
         names = {tool["name"] for tool in tools["tools"]}
-        assert "exec_cmd" not in names and "read_file" in names
+        assert not {"exec_cmd", "agent_run", "orchestrate", "llm_chat", "doc_generate"} & names
+        assert "read_file" in names
         assert response.headers["X-Frame-Options"] == "DENY"
+
+        agent_request = urllib.request.Request(
+            base + "/api/agents/run",
+            data=json.dumps({"agent": "manager", "task": "policy check", "simulate": True}).encode(),
+            headers={"X-AirMCP-Token": TOKEN, "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(agent_request, timeout=10) as response:
+            assert json.loads(response.read())["isError"] is True
+
+        stream_request = urllib.request.Request(
+            base + "/api/orchestrate/stream",
+            data=json.dumps({"task": "policy check", "simulate": True}).encode(),
+            headers={"X-AirMCP-Token": TOKEN, "Content-Type": "application/json"},
+        )
+        try:
+            urllib.request.urlopen(stream_request, timeout=10)
+            raise AssertionError("streaming orchestration bypassed production policy")
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 403
 
         project = urllib.parse.quote(os.path.join(ROOT, "demo-erp"))
         _, listing = get("/api/fs?path=" + project)

@@ -222,6 +222,8 @@ Tanpa API key, orchestration dapat berjalan dalam mode simulasi agar UI dan alur
 
 Untuk provider OpenCode CLI, AirMCP menjalankan `opencode run --standalone --format json` agar tidak bergantung pada port service bersama dan dapat mencatat event tool yang dijalankan CLI. `tool_calls` menandai asal panggilan (`opencode_cli` atau `mcp_via_opencode_cli`), input, status, dan durasi bila tersedia. Model dan ketersediaannya dapat berubah; cek dengan `opencode models --standalone` bila agen mengembalikan `Model unavailable`.
 
+Instal dan autentikasi OpenCode secara terpisah jika ingin menjalankan agen tanpa API key HTTP. Pada instalasi baru, AirMCP mendeteksi perintah `opencode` di `PATH` dan memakai model awal `opencode/beam-free`. Jika sudah memiliki `providers.json`, konfigurasi lokal tersebut tetap dipakai; ubah model lama melalui halaman Providers atau di file itu sendiri.
+
 ## Provider LLM
 
 Salin `.env.example` ke `.env`, lalu isi provider yang diperlukan:
@@ -261,6 +263,8 @@ Dalam production mode:
 - `web_fetch` menolak localhost, loopback, link-local, dan private network, termasuk tujuan redirect;
 - response dashboard mengirim security headers;
 - tool berisiko diblokir secara default.
+
+Jalankan `agent_run`, `orchestrate`, `llm_chat`, atau `doc_generate` hanya jika Anda mengizinkannya secara eksplisit. Provider CLI dapat menjalankan tool di dalam prosesnya sendiri; aturan tool MCP tidak membatasi tool internal tersebut. Endpoint stream orkestrasi mengikuti izin `orchestrate` yang sama.
 
 Aktifkan tool tertentu jika memang dibutuhkan:
 
