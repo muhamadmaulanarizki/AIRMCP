@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -625,6 +625,21 @@
   @keyframes statusPulse { 0%{box-shadow:0 0 0 0 #e6c47855} 100%{box-shadow:0 0 0 9px #e6c47800} }
   @media(max-width:900px) { .orch-layout,.orch-config { grid-template-columns:1fr; }.orch-side { min-height:0; }.agent-inspector { margin-top:0; }.run-queue { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); } }
   @media(max-width:700px){ .quick-card { border-right:0;border-bottom:1px solid var(--line); } }
+  /* Consistent spacing and keyboard focus across every workspace view. */
+  .detail { scrollbar-gutter:stable; }
+  .dhead h2 { line-height:1.15; }
+  .dhead p { max-width:68ch; }
+  .wide > .section, .wide > .hm-grid, .wide > .quick-grid { margin-top:18px; }
+  .form-grid input, .form-grid select, .form-grid textarea { min-width:0; width:100%; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, .item:focus-visible {
+    outline:2px solid var(--acid); outline-offset:2px;
+  }
+  @media(max-width:700px) {
+    .run-queue { grid-template-columns:1fr; }
+    .orch-config-block { padding:14px; }
+    .room-heading { gap:12px; align-items:flex-start; }
+    .room-heading .sec { white-space:normal; text-align:right; }
+  }
 </style>
 </head>
 <body>
@@ -632,9 +647,9 @@
 <header>
   <div class="brand"><span class="brand-mark">a/</span> AirMCP <small>STUDIO</small></div>
   <div class="pbar">
-    <span class="lbl">PROYEK</span>
-    <select id="proj-switch" aria-label="Proyek aktif"></select>
-    <button id="proj-new">+ Baru</button>
+    <span class="lbl">PROJECTS</span>
+    <select id="proj-switch" aria-label="Active project"></select>
+    <button id="proj-new">+ New</button>
   </div>
   <div class="top-status">
     <div class="stat" id="st-proto"><b>proto —</b></div>
@@ -643,29 +658,29 @@
 </header>
 
 <div class="shell">
-  <nav aria-label="Navigasi utama">
-    <div class="grp">PROYEK</div>
-    <button class="active" data-v="p-overview"><span class="n"></span> Ringkasan</button>
+  <nav aria-label="Main navigation">
+    <div class="grp">PROJECTS</div>
+    <button class="active" data-v="p-overview"><span class="n"></span> Overview</button>
     <button data-v="p-chat"><span class="n"></span> Chat</button>
     <button data-v="p-orch"><span class="n" id="n-agt"></span> Orchestrate</button>
     <button data-v="p-docs"><span class="n" id="n-docs"></span> Docs</button>
-    <button data-v="p-notes"><span class="n" id="n-notes"></span> Catatan</button>
+    <button data-v="p-notes"><span class="n" id="n-notes"></span> Notes</button>
     <button data-v="p-prompts"><span class="n" id="n-prm"></span> Prompts</button>
-    <div class="grp">SISTEM</div>
+    <div class="grp">SYSTEM</div>
     <button data-v="s-agents"><span class="n" id="n-agents"></span> Agents</button>
     <button data-v="s-providers"><span class="n" id="n-prov"></span> Providers</button>
     <button data-v="s-tools"><span class="n" id="n-tools"></span> Tools</button>
     <button data-v="s-resources"><span class="n" id="n-res"></span> Resources</button>
     <button data-v="s-server"><span class="n"></span> Server</button>
     <div class="foot">
-      <b>AirMCP / lokal</b><br>Proyek, agen, dan tools.<br>Tools · agen · dokumen
+      <b>AirMCP / local</b><br>Projects, agents, and tools.<br>Tools · agents · documents
     </div>
   </nav>
 
   <main id="workspace">
     <section class="list" id="pane-list"></section>
     <section class="detail" id="pane-detail">
-      <div class="empty" id="pick">Memuat workspace…</div>
+      <div class="empty" id="pick">Loading workspace…</div>
     </section>
   </main>
 </div>
@@ -697,7 +712,7 @@ const ICON_PATHS = {
 function icon(key) { return `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICON_PATHS[key] || ICON_PATHS['p-overview']}"/></svg>`; }
 let overviewStage = null;
 function workspaceHero() {
-  return `<div class="room-panel"><div class="room-heading"><div><span class="eyebrow">RUANG KERJA / 01</span><h3>Tim di studio</h3></div><button class="sec" data-go="p-orch">Buka orchestrator ↗</button></div><canvas id="overview-stage"></canvas><div class="room-inspector" id="overview-agent"><div><b>Pilih karakter</b><span> · lihat peran dan provider agent</span></div><span class="badge">READY</span></div><div class="room-caption"><span>Klik karakter untuk melihat detail agen.</span><span>Posisi diam = siap menerima tugas</span></div></div>`;
+  return `<div class="room-panel"><div class="room-heading"><div><span class="eyebrow">WORKSPACE / 01</span><h3>Meet the team</h3></div><button class="sec" data-go="p-orch">Open orchestrator ↗</button></div><canvas id="overview-stage"></canvas><div class="room-inspector" id="overview-agent"><div><b>Select an agent</b><span> · view role and provider</span></div><span class="badge">READY</span></div><div class="room-caption"><span>Select a character to view agent details.</span><span>Idle agents are ready for tasks</span></div></div>`;
 }
 function mountOverviewStage() {
   if(overviewStage) overviewStage.destroy();
@@ -714,9 +729,9 @@ function mountOverviewStage() {
 }
 function quickActions() {
   return `<div class="quick-grid">${[
-    ['p-orch','Jalankan tim agen','Bagi tugas dan kolaborasikan keahlian agen.'],
-    ['p-docs','Susun dokumentasi','Bangun PRD, brief, dan pengetahuan proyek.'],
-    ['s-tools','Jelajahi tools','Uji kemampuan MCP langsung dari workspace.']
+    ['p-orch','Run an agent team','Assign work across specialized agents.'],
+    ['p-docs','Build documentation','Create PRDs, briefs, and project knowledge.'],
+    ['s-tools','Explore tools','Try MCP tools in the workspace.']
   ].map(([view,title,desc]) => `<button class="quick-card" data-go="${view}">${icon(view)}<b>${title} ↗</b><span>${desc}</span></button>`).join('')}</div>`;
 }
 function wireQuickActions(d) {
@@ -735,15 +750,15 @@ const scopedProjects = () => {
 function ctxStrip(extra) {
   if (!state.active) {
     const names = (state.projects || []).map(p => p.project);
-    return `<div class="ctx"><span class="nm">Semua proyek</span>
+    return `<div class="ctx"><span class="nm">All projects</span>
       <span class="badge">${names.length} project</span>
-      <span class="pth">${esc(names.join(', ') || 'belum ada project')}</span>
+      <span class="pth">${esc(names.join(', ') || 'no projects yet')}</span>
       <span class="sp"></span>${extra || ''}</div>`;
   }
   const p = projObj() || {};
   return `<div class="ctx"><span class="nm">${esc(p.project || state.active)}</span>
-    ${p.active ? '<span class="badge ok">aktif</span>'
-               : `<button class="sec" data-setactive="${esc(p.project)}">jadikan aktif</button>`}
+    ${p.active ? '<span class="badge ok">active</span>'
+               : `<button class="sec" data-setactive="${esc(p.project)}">set active</button>`}
     <span class="pth">${esc(p.path || '')}</span>
     <span class="sp"></span>${extra || ''}</div>`;
 }
@@ -754,7 +769,7 @@ function wireCtx(d) {
 }
 
 function toolOut(r) {
-  if (r?.isError) throw new Error(r.text || 'Tool gagal dijalankan');
+  if (r?.isError) throw new Error(r.text || 'Tool execution failed');
   const s = (r && r.structuredContent !== undefined) ? r.structuredContent : r;
   if (s && s.code && s.message) throw new Error(s.message);
   if (s && s.error) throw new Error(typeof s.error === 'string' ? s.error : JSON.stringify(s.error));
@@ -774,7 +789,7 @@ function renderProjectBar() {
   const sel = document.querySelector('#proj-switch');
   if (!sel) return;
   const ps = state.projects || [];
-  let h = `<option value="">— Semua proyek (${ps.length}) —</option>`;
+  let h = `<option value="">— All projects (${ps.length}) —</option>`;
   ps.forEach(p => {
     h += `<option value="${esc(p.project)}" ${state.active === p.project ? 'selected' : ''}>`
        + `${esc(p.project)}${p.active ? '  ★' : ''}</option>`;
@@ -787,22 +802,22 @@ function openNewProject() {
   overlay.className = 'modal';
   overlay.innerHTML = `
     <div class="box" style="width:min(470px,94vw);height:auto">
-      <div class="mh"><span class="p">PROYEK BARU</span></div>
+      <div class="mh"><span class="p">NEW PROJECT</span></div>
       <div class="mf">
-        <div class="fg"><label>Nama</label><input class="ipt" id="np-name" placeholder="mis. toko-kopi"></div>
+        <div class="fg"><label>Name</label><input class="ipt" id="np-name" placeholder="e.g. coffee-shop"></div>
         <div class="fg"><label>Stack</label>
           <select id="np-stack">
-            <option value="">dasar (docs + prompt)</option>
+            <option value="">basic (docs + prompts)</option>
             <option value="laravel">laravel</option>
             <option value="node">node</option>
             <option value="python">python</option>
           </select></div>
-        <div class="fg"><label>Lokasi</label><input class="ipt" id="np-path" placeholder="(opsional) path absolut"></div>
-        <div class="hint">Dibuat: folder + <b>docs/PRD.md</b> + <b>docs/BRD.md</b> + 5 prompt + scaffold stack. Langsung jadi project aktif.</div>
+        <div class="fg"><label>Location</label><input class="ipt" id="np-path" placeholder="optional absolute path"></div>
+        <div class="hint">Creates a folder, <b>docs/PRD.md</b>, <b>docs/BRD.md</b>, five prompts, and a stack scaffold. The new project becomes active.</div>
       </div>
       <div class="mfoot">
-        <button class="sec" id="np-cancel">BATAL</button>
-        <button class="exe" id="np-go">BUAT PROJECT</button>
+        <button class="sec" id="np-cancel">CANCEL</button>
+        <button class="exe" id="np-go">CREATE PROJECT</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -811,10 +826,10 @@ function openNewProject() {
   document.querySelector('#np-cancel').addEventListener('click', close);
   document.querySelector('#np-go').addEventListener('click', async () => {
     const name = document.querySelector('#np-name').value.trim();
-    if (!name) { toast('Isi nama project dulu', true); return; }
+    if (!name) { toast('Enter a project name first', true); return; }
     const btn = document.querySelector('#np-go');
     const originalLabel = btn.innerHTML;
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>MEMBUAT';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>CREATING';
     try {
       const s = toolOut(await api('/projects/create', {
         name, stack: document.querySelector('#np-stack').value || undefined,
@@ -826,10 +841,10 @@ function openNewProject() {
       renderProjectBar(); updateNavCounts();
       if (!document.querySelector('#pane-list').classList.contains('hidden')) renderList();
       renderDetail();
-      toast('Project dibuat: ' + s.project + (s.stack ? ' [' + s.stack + ']' : ''));
+      toast('Project created: ' + s.project + (s.stack ? ' [' + s.stack + ']' : ''));
     } catch (e) {
-      btn.disabled = false; btn.textContent = 'BUAT PROJECT';
-      toast('Gagal: ' + e.message, true);
+      btn.disabled = false; btn.textContent = 'CREATE PROJECT';
+      toast('Failed: ' + e.message, true);
     }
   });
   document.querySelector('#np-name').focus();
@@ -915,7 +930,7 @@ function renderList() {
   const items = v === 's-tools' ? state.tools : (v === 's-resources' ? state.resources : []);
   const label = v === 's-tools' ? 'TOOLS' : 'RESOURCES';
   let h = `<div class="list-h">${label}<div class="cnt">${items.length} items</div></div>`;
-  h += `<div class="list-search"><input class="ipt" id="list-q" placeholder="cari..." value="${esc(state.filter[v] || '')}"></div>`;
+  h += `<div class="list-search"><input class="ipt" id="list-q" placeholder="Search..." value="${esc(state.filter[v] || '')}"></div>`;
   items.forEach((it, i) => {
     const key = v === 's-tools' ? it.name : it.uri;
     const desc = v === 's-tools' ? (it.title || '') : (it.description || '');
@@ -950,13 +965,13 @@ function renderList() {
 function buildListModel() {
   const v = state.view, out = [];
   if (v === 'p-docs') {
-    out.push({ kind: 'action', action: 'new-doc', label: '+ Dokumen baru (generate PRD / BRD)',
-               key: 'new doc dokumen baru prd brd' });
+    out.push({ kind: 'action', action: 'new-doc', label: '+ New document (generate PRD / BRD)',
+               key: 'new document prd brd' });
   }
   if (v === 'p-prompts' && !state.active) {
     const globals = (state.prompts || []).filter(x => x.name.indexOf('/') === -1);
     if (globals.length) {
-      out.push({ kind: 'group', label: 'BAWAAN (GLOBAL)', sub: 'tidak terikat project' });
+      out.push({ kind: 'group', label: 'BUILT-IN (GLOBAL)', sub: 'available in every project' });
       globals.forEach(x => out.push({ kind: 'prompt', project: '', name: x.name, label: x.name,
         desc: x.description || '', key: x.name.toLowerCase() }));
     }
@@ -965,12 +980,12 @@ function buildListModel() {
     if (!state.active) out.push({ kind: 'group', label: p.project, sub: p.path || '' });
     if (v === 'p-docs') {
       const files = state.docs[p.project] || [];
-      if (!files.length) out.push({ kind: 'hint', label: 'belum ada dokumen' });
+      if (!files.length) out.push({ kind: 'hint', label: 'no documents yet' });
       files.forEach(f => out.push({ kind: 'doc', project: p.project, file: f, label: f,
         key: (p.project + '/' + f).toLowerCase() }));
     } else {
       const prs = (state.prompts || []).filter(x => x.name.indexOf(p.project + '/') === 0);
-      if (!prs.length) out.push({ kind: 'hint', label: 'belum ada prompt' });
+      if (!prs.length) out.push({ kind: 'hint', label: 'no prompts yet' });
       prs.forEach(x => out.push({ kind: 'prompt', project: p.project, name: x.name,
         label: x.name.split('/').slice(1).join('/'), desc: x.description || '',
         key: x.name.toLowerCase() }));
@@ -985,7 +1000,7 @@ function renderGroupedList(list, model) {
   const label = v === 'p-docs' ? 'DOCS' : 'PROMPTS';
   const real = model.filter(x => x.kind === 'doc' || x.kind === 'prompt').length;
   let h = `<div class="list-h">${label}<div class="cnt">${real} items</div></div>`;
-  h += `<div class="list-search"><input class="ipt" id="list-q" placeholder="cari..." value="${esc(state.filter[v] || '')}"></div>`;
+  h += `<div class="list-search"><input class="ipt" id="list-q" placeholder="Search..." value="${esc(state.filter[v] || '')}"></div>`;
   model.forEach((m, i) => {
     if (m.kind === 'group') {
       h += `<div class="pgroup">${esc(m.label)}<span class="sub">${esc(m.sub || '')}</span></div>`;
@@ -1034,14 +1049,14 @@ function renderDetail() {
   if (v === 's-agents')    { renderAgents(d); return; }
   if (v === 's-providers') { renderProviders(d); return; }
   if (v === 's-server')    { renderServer(d); return; }
-  if (i === null) { d.innerHTML = `<div class="empty explorer-empty">${icon(v)}<h2>${v === 's-tools' ? 'Tool explorer' : 'Resource explorer'}</h2><p>${v === 's-tools' ? 'Pilih tool untuk melihat skema input dan menjalankannya.' : 'Pilih resource untuk membaca data dan konteks server.'}</p><span class="badge">${v === 's-tools' ? state.tools.length + ' tools tersedia' : state.resources.length + ' resources tersedia'}</span></div>`; return; }
+  if (i === null) { d.innerHTML = `<div class="empty explorer-empty">${icon(v)}<h2>${v === 's-tools' ? 'Tool explorer' : 'Resource explorer'}</h2><p>${v === 's-tools' ? 'Select a tool to inspect its input schema and run it.' : 'Select a resource to read server data and context.'}</p><span class="badge">${v === 's-tools' ? state.tools.length + ' tools available' : state.resources.length + ' resources available'}</span></div>`; return; }
   if (v === 's-tools') renderToolDetail(d, state.tools[i], i);
   else if (v === 's-resources') renderResourceDetail(d, state.resources[i], i);
 }
 
 function renderServer(d) {
-  d.innerHTML = `<div class="dhead"><h2>Server capabilities <span class="tag">SISTEM</span></h2>
-    <p>Hasil handshake initialize — versi protokol yang dinegosiasikan, primitives, dan metadata server.</p></div>
+  d.innerHTML = `<div class="dhead"><h2>Server capabilities <span class="tag">SYSTEM</span></h2>
+    <p>Initialize handshake result, negotiated protocol version, primitives, and server metadata.</p></div>
     <div class="console"><div class="console-h">RAW RESPONSE<span class="tag-ok">200</span></div>
     <pre>${hljson(state.server || {})}</pre></div>`;
 }
@@ -1074,15 +1089,15 @@ function openFsBrowser(input, mode) {
   overlay.className = 'modal';
   overlay.innerHTML = `<div class="box">
     <div class="mh">
-      <button class="sec" id="fs-up">naik ..</button>
-      <div class="p" id="fs-path">memuat...</div>
-      <input class="ipt" id="fs-input" style="max-width:220px" placeholder="ketik path + Enter">
+      <button class="sec" id="fs-up">up ..</button>
+      <div class="p" id="fs-path">loading...</div>
+      <input class="ipt" id="fs-input" style="max-width:220px" placeholder="enter a path and press Enter">
     </div>
     <div class="ml" id="fs-list"></div>
     <div class="mfoot">
       <span class="crumb" id="fs-info"></span>
-      <button class="sec" id="fs-cancel">Batal</button>
-      <button class="exe" id="fs-pick">Gunakan folder ini</button>
+      <button class="sec" id="fs-cancel">Cancel</button>
+      <button class="exe" id="fs-pick">Use this folder</button>
     </div></div>`;
   document.body.appendChild(overlay);
   let cur = '', up = null;
@@ -1092,7 +1107,7 @@ function openFsBrowser(input, mode) {
     const d = await r.json();
     cur = d.path || '';
     up = d.parent || null;
-    $('#fs-path').textContent = d.path || '(pilih drive)';
+    $('#fs-path').textContent = d.path || '(select a drive)';
     $('#fs-input').value = d.path || '';
     $('#fs-up').disabled = !up;
     const list = $('#fs-list');
@@ -1102,12 +1117,12 @@ function openFsBrowser(input, mode) {
     if (mode === 'any')
       (d.files || []).forEach(nm =>
         html += `<div class="me file" data-file="${esc(nm)}"><span class="ic">·</span>${esc(nm)}</div>`);
-    list.innerHTML = html || '<div class="crumb">(kosong / tidak ada akses)</div>';
+    list.innerHTML = html || '<div class="crumb">(empty or inaccessible)</div>';
     list.querySelectorAll('[data-dir]').forEach(el =>
       el.addEventListener('click', () => load(fsJoin(cur, el.dataset.dir))));
     list.querySelectorAll('[data-file]').forEach(el =>
       el.addEventListener('click', () => { if (input) input.value = fsJoin(cur, el.dataset.file); close(); }));
-    $('#fs-info').textContent = `${(d.dirs || []).length} folder, ${(d.files || []).length} file`;
+    $('#fs-info').textContent = `${(d.dirs || []).length} folders, ${(d.files || []).length} files`;
   }
   $('#fs-up').addEventListener('click', () => { if (up) load(up); });
   $('#fs-input').addEventListener('keydown', e => { if (e.key === 'Enter') load(e.target.value); });
@@ -1120,12 +1135,12 @@ function openFsBrowser(input, mode) {
 function collectArgs(container) {
   const args = {};
   container.querySelectorAll('input[data-k]').forEach(inp => {
-    if (!inp.reportValidity()) throw new Error('Lengkapi kolom ' + inp.dataset.k);
+    if (!inp.reportValidity()) throw new Error('Complete the field ' + inp.dataset.k);
     if (inp.value.trim() === '') return;
     const type = inp.dataset.type || 'string';
     let value = inp.value;
     if (type !== 'string') {
-      try { value = JSON.parse(value); } catch { throw new Error(inp.dataset.k + ': masukkan ' + type + ' yang valid'); }
+      try { value = JSON.parse(value); } catch { throw new Error(inp.dataset.k + ': enter a valid ' + type + ''); }
       const valid = type === 'integer' ? Number.isInteger(value) : type === 'array' ? Array.isArray(value)
         : type === 'object' ? value !== null && typeof value === 'object' && !Array.isArray(value)
         : typeof value === type;
@@ -1344,7 +1359,7 @@ class AgentStage {
     this.cv.addEventListener('pointermove', this._onPointer);
     this.cv.addEventListener('click', this._onClick);
     this.cv.setAttribute('role','img');
-    this.cv.setAttribute('aria-label','Kantor isometrik tim agen. Posisi dan penanda menampilkan aktivitas agen.');
+    this.cv.setAttribute('aria-label','Isometric agent studio. Positions and markers show agent activity.');
     this._onResize = () => this.resize();
     window.addEventListener('resize', this._onResize);
     this.resize();
@@ -1383,7 +1398,7 @@ class AgentStage {
       home: { gx: home[0], gy: home[1] + 0.55 },
       gx: home[0], gy: home[1] + 0.55,
       tgx: home[0], tgy: home[1] + 0.55,
-      onArrive: null, talking: false, walkT: 0, status: 'ready', detail: 'siap menerima tugas',
+      onArrive: null, talking: false, walkT: 0, status: 'ready', detail: 'ready for work',
     };
   }
   setTeam(agents) {
@@ -1576,7 +1591,7 @@ class AgentStage {
     c.save();c.translate(this.offsetX,this.offsetY);c.scale(this.scale,this.scale);
     // Small coordinates and a restrained editorial caption frame the diorama.
     c.fillStyle='#bfc4ae';c.font='11px Consolas,monospace';c.textAlign='left';
-    c.fillText(this.scene==='house'?'02 / RUMAH KERJA':this.scene==='none'?'03 / RUANG KOSONG':'01 / STUDIO',38,34);
+    c.fillText(this.scene==='house'?'02 / HOME OFFICE':this.scene==='none'?'03 / EMPTY ROOM':'01 / STUDIO',38,34);
     c.fillStyle='#819188';c.fillText('AIR MCP   /   TEAM SPACE',38,52);
     if(this.scene!=='none') this.drawFloor(c);
     const objects=[];
@@ -1592,7 +1607,7 @@ class AgentStage {
     const selected=this.byName[this.selected] || this.byName[this.activeName];
     c.fillStyle='#18221f';this.roundRect(c,34,532,872,40,7);c.fill();
     c.fillStyle=selected?'#e0c28c':'#a9baaa';c.font='12px Segoe UI,sans-serif';c.textAlign='left';
-    c.fillText(selected?selected.title+'  /  '+(selected.talking?'berbicara':selected.detail||selected.status||'siap'):this.agents.length+' agen di ruang kerja. Klik karakter untuk melihat status dan perannya.',50,557);
+    c.fillText(selected?selected.title+'  /  '+(selected.talking?'speaking':selected.detail||selected.status||'ready'):this.agents.length+' agents in the workspace. Select one to view its status and role.',50,557);
     c.fillStyle='#819188';c.font='10px Consolas,monospace';c.textAlign='right';c.fillText(this.activeName?'TASK IN PROGRESS':'IDLE',889,557);
     c.restore();
   }
@@ -1636,49 +1651,49 @@ function teamPills(agents) {
   return agents.map(a =>
     `<span class="pill${on.includes(a.name) ? ' on' : ''}" data-a="${esc(a.name)}">`
     + `${esc(a.title || a.name)}</span>`).join('')
-    || '<span class="hint">belum ada agen - buat di tab Agents</span>';
+    || '<span class="hint">no agents yet — create one in Agents</span>';
 }
 function renderOrchestrate(d) {
   const agents = state.agents || [], provs = state.providers || [];
   d.innerHTML = `
-    <div class="dhead"><h2>Orchestrate Team <span class="tag">PROYEK</span></h2>
-      <p>Satu tim agen mengerjakan project yang sedang dipilih. Ganti project lewat pemilih di header.</p></div>
+    <div class="dhead"><h2>Orchestrate Team <span class="tag">PROJECTS</span></h2>
+      <p>Assign an agent team to the selected project. Switch projects from the header.</p></div>
     ${ctxStrip()}
     <div class="wide orch-wide">
       <div class="orch-layout">
         <div class="stage-wrap">
-          <div class="cap"><span>RUANG DISKUSI TIM</span>
+          <div class="cap"><span>AGENT WORKSPACE</span>
             <span class="r" id="o-stage-cap">idle</span>
             <span class="r" id="o-elapsed" style="margin-left:10px;color:var(--amber)"></span></div>
           <canvas id="stage"></canvas>
         </div>
         <aside class="orch-side">
-          <div class="orch-side-head"><b>RUN BOARD</b><span class="run-count" id="o-run-count">belum dijalankan</span></div>
+          <div class="orch-side-head"><b>RUN BOARD</b><span class="run-count" id="o-run-count">not started</span></div>
           <div class="run-queue" id="o-queue"></div>
-          <div class="agent-inspector" id="o-agent-detail"><span class="agent-kicker">AGENT DETAIL</span><h4>Pilih agent</h4><p>Klik karakter atau baris antrean untuk melihat status prosesnya.</p></div>
+          <div class="agent-inspector" id="o-agent-detail"><span class="agent-kicker">AGENT DETAIL</span><h4>Select an agent</h4><p>Select a character or queue row to view progress.</p></div>
         </aside>
       </div>
       <div class="orch-config">
         <div class="orch-config-block">
-          <div class="form-grid"><label>Tugas</label>
-            <textarea class="ipt" id="o-task" placeholder="mis. Buat fitur manajemen vendor (CRUD + migrasi)"></textarea></div>
-          <div class="form-grid"><label>Tim</label><div><div class="pillrow" id="o-team">${teamPills(agents)}</div>
-            <div class="hint">Klik untuk memilih agent. Urutan antrean mengikuti susunan tim.</div></div></div>
+          <div class="form-grid"><label>Task</label>
+            <textarea class="ipt" id="o-task" placeholder="e.g. Build vendor management (CRUD and migration)"></textarea></div>
+          <div class="form-grid"><label>Team</label><div><div class="pillrow" id="o-team">${teamPills(agents)}</div>
+            <div class="hint">Select agents. The queue follows this order.</div></div></div>
         </div>
         <div class="orch-config-block">
           <div class="form-grid"><label>Mode</label><div class="row">
             <select id="o-mode"><option value="pipeline">pipeline</option><option value="debate">debate</option><option value="supervisor">supervisor</option></select>
             <input class="ipt" id="o-rounds" type="number" min="1" max="5" value="2" title="rounds" style="width:58px"></div></div>
-          <div class="form-grid"><label>Visual</label><select id="o-scene"><option value="office">kantor</option><option value="house">rumah</option><option value="none">polos</option></select></div>
-          <div class="form-grid"><label>Eksekusi</label><select id="o-exec"><option value="auto">otomatis</option><option value="approval">approval per tahap</option></select></div>
-          <span class="badge ${provs.length ? 'ok' : 'warn'}">${provs.length ? ('live: ' + provs.join(', ')) : 'SIMULASI · provider belum aktif'}</span>
+          <div class="form-grid"><label>Visual</label><select id="o-scene"><option value="office">office</option><option value="house">home</option><option value="none">minimal</option></select></div>
+          <div class="form-grid"><label>Execution</label><select id="o-exec"><option value="auto">automatic</option><option value="approval">approval at each step</option></select></div>
+          <span class="badge ${provs.length ? 'ok' : 'warn'}">${provs.length ? ('live: ' + provs.join(', ')) : 'SIMULATION · no active provider'}</span>
         </div>
       </div>
       <div class="runbar">
         <button class="exe" id="o-run">RUN TEAM</button>
         <button class="sec" id="o-stop" disabled>STOP</button>
         <button class="sec" id="o-replay" disabled>REPLAY</button>
-        <span class="hint">tiap agen memakai CLI opencode penuh (bisa menit-an)</span>
+        <span class="hint">Each agent may take several minutes with the OpenCode CLI.</span>
       </div>
 
       <div class="tl" id="o-out"></div>
@@ -1696,7 +1711,7 @@ function renderOrchestrate(d) {
     const base = agents.find(agent => agent.name === name) || stage.byName[name] || {name, title:name};
     const run = activeRun && activeRun.records.get(name);
     const status = run?.status || base.status || 'ready';
-    const detail = run?.detail || base.detail || 'siap menerima tugas';
+    const detail = run?.detail || base.detail || 'ready for work';
     const el = $('#o-agent-detail'); if (!el) return;
     el.innerHTML = `<span class="agent-kicker">AGENT DETAIL / ${esc(status.toUpperCase())}</span><h4>${esc(base.title || name)}</h4><p>${esc(detail)}</p><div class="agent-meta"><span>${esc(name)}</span><span>${esc(run?.provider || base.provider || 'auto')}</span>${run?.elapsedMs ? `<span>${seconds(run.elapsedMs)}</span>` : ''}</div>`;
     d.querySelectorAll('.run-agent').forEach(row => row.classList.toggle('selected', row.dataset.agent === name));
@@ -1707,11 +1722,11 @@ function renderOrchestrate(d) {
       const base = agents.find(agent => agent.name === name) || {name, title:name};
       const run = activeRun?.records.get(name);
       const status = run?.status || 'ready';
-      return `<button class="run-agent ${esc(status)}${selectedAgent===name?' selected':''}" data-agent="${esc(name)}"><span class="status-dot"></span><span><strong>${esc(base.title || name)}</strong><small>${esc(run?.detail || (index===0?'siap memimpin':'siap menerima tugas'))}</small></span><time>${run?.elapsedMs ? seconds(run.elapsedMs) : String(index + 1).padStart(2,'0')}</time></button>`;
+      return `<button class="run-agent ${esc(status)}${selectedAgent===name?' selected':''}" data-agent="${esc(name)}"><span class="status-dot"></span><span><strong>${esc(base.title || name)}</strong><small>${esc(run?.detail || (index===0?'ready to lead':'ready for work'))}</small></span><time>${run?.elapsedMs ? seconds(run.elapsedMs) : String(index + 1).padStart(2,'0')}</time></button>`;
     }).join('');
-    $('#o-queue').innerHTML = rows || '<div class="empty" style="padding:18px">Pilih minimal satu agent.</div>';
+    $('#o-queue').innerHTML = rows || '<div class="empty" style="padding:18px">Select at least one agent.</div>';
     const sum = activeRun?.summary();
-    $('#o-run-count').textContent = sum ? `${sum.done}/${sum.total} selesai` : `${names.length} agent siap`;
+    $('#o-run-count').textContent = sum ? `${sum.done}/${sum.total} complete` : `${names.length} agents ready`;
     d.querySelectorAll('.run-agent').forEach(row => row.addEventListener('click', () => {
       stage.selected = row.dataset.agent; inspectAgent(row.dataset.agent);
     }));
@@ -1750,8 +1765,8 @@ function renderOrchestrate(d) {
     if (activeRun) { activeRun.cancel(); syncStageRun(); }
     stopTimer();
     const e = elapsedEl(); if (e) e.textContent = '';
-    cap().textContent = 'dihentikan';
-    toast('Dijalankan berhenti', true);
+    cap().textContent = 'stopped';
+    toast('Run stopped', true);
   });
   const out = () => $('#o-out');
   function turnHTML(x, i) {
@@ -1766,12 +1781,12 @@ function renderOrchestrate(d) {
     const long = String(x.content || '').length > 520;
     return `<div class="turn ${esc(x.agent)}" id="turn-${i}">
       <div class="th"><b>${esc(x.title || x.agent)}</b><span class="badge">${esc(x.agent)}</span><span class="prov">${esc(x.provider || '')}</span></div>
-      <div class="tc${long?' long':''}">${esc(x.content)}</div><div class="turn-tools">${chips || '<span class="turn-signal">output</span>'}${long?'<button data-expand>LIHAT LENGKAP ↓</button>':''}</div></div>`;
+      <div class="tc${long?' long':''}">${esc(x.content)}</div><div class="turn-tools">${chips || '<span class="turn-signal">output</span>'}${long?'<button data-expand>SHOW FULL OUTPUT ↓</button>':''}</div></div>`;
   }
   out().addEventListener('click', event => {
     const button = event.target.closest('[data-expand]'); if (!button) return;
     const turn = button.closest('.turn'); turn.classList.toggle('expanded');
-    button.textContent = turn.classList.contains('expanded') ? 'RINGKAS ↑' : 'LIHAT LENGKAP ↓';
+    button.textContent = turn.classList.contains('expanded') ? 'COLLAPSE ↑' : 'SHOW FULL OUTPUT ↓';
   });
   function wireReveal(turns) {
     let reveal = 0;
@@ -1790,15 +1805,15 @@ function renderOrchestrate(d) {
   async function run() {
     const team = selectedTeam();
     const task = $('#o-task').value.trim();
-    if (!task) { toast('Isi tugas dulu', true); return; }
-    if (!team.length) { toast('Pilih minimal 1 agen', true); return; }
+    if (!task) { toast('Enter a task first', true); return; }
+    if (!team.length) { toast('Select at least one agent', true); return; }
     activeRun = new OrchestrationRun(team, agents, task);
     activeRun.startFirst(); selectedAgent = team[0];
     stage.setTeam(agents.filter(a => team.includes(a.name)));
     syncStageRun(); inspectAgent(selectedAgent);
     if ($('#o-exec').value === 'approval') {
       runBtn.disabled = true; runBtn.innerHTML = '<span class="spinner"></span>RUNNING';
-      repBtn.disabled = true; out().innerHTML = ''; cap().textContent = 'menunggu...';
+      repBtn.disabled = true; out().innerHTML = ''; cap().textContent = 'waiting...';
       startTimer(); stopBtn.disabled = false;
       stage.resetQueue();
       await runApproval(team, task, state.active || undefined);
@@ -1827,7 +1842,7 @@ function renderOrchestrate(d) {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
         signal: orchAbort.signal,
       });
-      if (!resp.body) throw new Error('browser tidak dukung streaming');
+      if (!resp.body) throw new Error('This browser does not support streaming');
       const reader = resp.body.getReader(), dec = new TextDecoder();
       let buf = '';
       while (true) {
@@ -1840,15 +1855,15 @@ function renderOrchestrate(d) {
           if (!line) continue;
           let ev; try { ev = JSON.parse(line); } catch { continue; }
           if (ev.type === 'status' && ev.phase === 'start') {
-            activeRun.set(ev.agent, 'running', 'sedang mengerjakan tugas', {provider: ev.provider || 'auto'});
+            activeRun.set(ev.agent, 'running', 'working on the task', {provider: ev.provider || 'auto'});
             syncStageRun(); inspectAgent(ev.agent);
-            cap().textContent = (ev.title || ev.agent) + ' sedang bekerja...';
+            cap().textContent = (ev.title || ev.agent) + ' is working...';
           } else if (ev.type === 'turn') {
             tr.push(ev);
             activeRun.complete(ev.agent, ev.content, ev.provider);
             syncStageRun();
             out().insertAdjacentHTML('beforeend', turnHTML(ev, tr.length - 1));
-            cap().textContent = 'menunggu ' + ev.agent + '... (' + tr.length + '/' + team.length + ')';
+            cap().textContent = 'waiting for ' + ev.agent + '... (' + tr.length + '/' + team.length + ')';
             stage.push(ev);
           } else if (ev.type === 'done') { simulated = ev.simulated; }
           else if (ev.type === 'error') { errored = ev.message; }
@@ -1862,14 +1877,14 @@ function renderOrchestrate(d) {
       } else {
         activeRun.finish(); syncStageRun();
         lastTurns = tr; lastTranscript = tr;
-        cap().textContent = 'selesai · ' + tr.length + ' turn' + (simulated ? ' · SIMULASI' : '');
+        cap().textContent = 'complete · ' + tr.length + ' turn' + (simulated ? ' · SIMULASI' : '');
         repBtn.disabled = false;
       }
     } catch (e) {
       if (e && e.name === 'AbortError') {
         if (activeRun && !activeRun.finishedAt) { activeRun.cancel(); syncStageRun(); }
-        out().insertAdjacentHTML('beforeend', '<div class="turn live"><div class="tc">dijalankan berhenti oleh pengguna.</div></div>');
-        cap().textContent = 'dihentikan';
+        out().insertAdjacentHTML('beforeend', '<div class="turn live"><div class="tc">Run stopped by the user.</div></div>');
+        cap().textContent = 'stopped';
       } else {
         if (activeRun) { activeRun.fail(e.message); syncStageRun(); }
         out().insertAdjacentHTML('beforeend', '<div class="turn live"><div class="tc">error: ' + esc(e.message) + '</div></div>');
@@ -1895,23 +1910,23 @@ function renderOrchestrate(d) {
       const confirm = document.getElementById('o-confirm'); if (confirm) confirm.remove();
       if (stage) { stage.activeName = null; Object.values(stage.byName).forEach(a => { a.talking = false; }); }
       activeRun.cancel(); syncStageRun();
-      cap().textContent = 'dihentikan'; repBtn.disabled = false;
+      cap().textContent = 'stopped'; repBtn.disabled = false;
       settle();
     };
     const step = async () => {
       if (stopped) return;
       if (i >= steps.length) {
         activeRun.finish(); syncStageRun();
-        cap().textContent = 'selesai · ' + steps.length + ' turn';
+        cap().textContent = 'complete · ' + steps.length + ' turn';
         repBtn.disabled = false; lastTurns = collected; lastTranscript = collected;
-        toast('Workflow selesai');
+        toast('Workflow complete');
         settle();
         return;
       }
       const st = steps[i];
       const ag = agents.find(a => a.name === st.agent) || { name: st.agent, title: st.agent, provider: '' };
-      activeRun.set(st.agent, 'running', 'menjalankan tahap approval'); syncStageRun(); inspectAgent(st.agent);
-      cap().textContent = (ag.title || st.agent) + ' mengerjakan...';
+      activeRun.set(st.agent, 'running', 'running approval step'); syncStageRun(); inspectAgent(st.agent);
+      cap().textContent = (ag.title || st.agent) + ' is working...';
       if (stage) {
         const a = stage.ensureAgent(ag.name, ag.title, ag.provider);
         stage.activeName = ag.name;
@@ -1930,7 +1945,7 @@ function renderOrchestrate(d) {
         const a = stage.byName[ag.name]; a.talking = false; stage.activeName = null; stage.walkTo(a, a.home);
       }
       const turn = { agent: st.agent, title: ag.title, provider: s.provider || '', content: s.content || '' };
-      if (s.provider === 'error') activeRun.set(st.agent, 'error', s.content || 'proses gagal');
+      if (s.provider === 'error') activeRun.set(st.agent, 'error', s.content || 'process failed');
       else activeRun.complete(st.agent, turn.content, turn.provider);
       syncStageRun();
       collected.push(turn);
@@ -1941,13 +1956,13 @@ function renderOrchestrate(d) {
       i++;
       if (i < steps.length) {
         const nextName = (agents.find(a => a.name === steps[i].agent) || {}).title || steps[i].agent;
-        out.insertAdjacentHTML('beforeend', `<div class="turn architect" id="o-confirm"><div class="th"><b>MENUNGGU KONFIRMASI</b><span class="prov">berikutnya: ${esc(nextName)}</span></div>
-          <div class="tc"><div class="hint" style="margin-bottom:6px">Tulis catatan/keputusan lalu LANJUT.</div>
-          <div class="row" style="gap:8px"><input class="ipt" id="oc-in" placeholder="catatan, atau 'lanjut'"><button class="exe" id="oc-go">LANJUT</button><button class="sec" id="oc-stop">STOP</button></div></div></div>`);
+        out.insertAdjacentHTML('beforeend', `<div class="turn architect" id="o-confirm"><div class="th"><b>AWAITING CONFIRMATION</b><span class="prov">next: ${esc(nextName)}</span></div>
+          <div class="tc"><div class="hint" style="margin-bottom:6px">Add a note or decision, then continue.</div>
+          <div class="row" style="gap:8px"><input class="ipt" id="oc-in" placeholder="note or 'continue'"><button class="exe" id="oc-go">CONTINUE</button><button class="sec" id="oc-stop">STOP</button></div></div></div>`);
         out.scrollTop = out.scrollHeight;
         $('#oc-go').addEventListener('click', () => {
-          const v = $('#oc-in').value.trim() || 'lanjut';
-          ctx += '\n\nCatatan user: ' + v;
+          const v = $('#oc-in').value.trim() || 'continue';
+          ctx += '\n\nUser note: ' + v;
           const c = document.getElementById('o-confirm'); if (c) c.remove();
           step();
         });
@@ -1956,9 +1971,9 @@ function renderOrchestrate(d) {
         });
       } else {
         activeRun.finish(); syncStageRun();
-        cap().textContent = 'selesai · ' + steps.length + ' turn';
+        cap().textContent = 'complete · ' + steps.length + ' turn';
         repBtn.disabled = false; lastTurns = collected; lastTranscript = collected;
-        toast('Workflow selesai');
+        toast('Workflow complete');
         settle();
       }
     };
@@ -1973,7 +1988,7 @@ function renderOrchestrate(d) {
     stage.resetQueue(); wireReveal(lastTurns);
     lastTurns.forEach(t => stage.push(t));
     await waitDrain();
-    cap().textContent = 'selesai'; repBtn.disabled = false;
+    cap().textContent = 'complete'; repBtn.disabled = false;
   });
 }
 
@@ -1982,30 +1997,30 @@ function renderAgents(d) {
   const agents = state.agents || [], provs = state.providers || [], pdefs = state.providerDefs || [];
   d.innerHTML = `
     <div class="dhead"><h2>Agents <span class="tag">MODELS</span></h2>
-      <p>Tim AI, sesuai cara kerjamu. Atur peran, model, dan instruksi setiap agen dari satu tempat.</p></div>
+      <p>Set up your AI team. Manage every agent's role, model, and instructions in one place.</p></div>
     <div class="wide">
       <div class="runbar">
-        <span class="badge ${provs.length ? 'ok' : 'warn'}">${provs.length ? ('provider aktif: ' + provs.join(', ')) : 'belum ada provider aktif → mode simulasi'}</span>
-        <span class="badge">${agents.length} agen</span>
+        <span class="badge ${provs.length ? 'ok' : 'warn'}">${provs.length ? ('active providers: ' + provs.join(', ')) : 'no active providers → simulation mode'}</span>
+        <span class="badge">${agents.length} agents</span>
       </div>
       <div class="management-grid"><section class="catalog">${agents.map(a => `<div class="acard" data-edit="${esc(a.name)}" style="cursor:pointer"><div class="top">
         <b>${esc(a.title || a.name)}</b>
         <span class="badge">${esc(a.name)}</span>
         <span class="badge">${esc(a.model || a.provider)}</span>
         ${a.tools ? '<span class="badge ok">tools</span>' : '<span class="badge">no-tools</span>'}
-        <button class="x" data-del="${esc(a.name)}" aria-label="Hapus agen ${esc(a.name)}">hapus</button></div></div>`).join('') || '<div class="hint">belum ada agen</div>'}
-      </section><section class="settings-panel"><div class="dlabel" style="margin-top:16px">KONFIGURASI AGEN</div>
-      <div class="form-grid"><label>nama</label><input class="ipt" id="ag-name" placeholder="mis. docs-writer"></div>
+        <button class="x" data-del="${esc(a.name)}" aria-label="Delete agent ${esc(a.name)}">delete</button></div></div>`).join('') || '<div class="hint">no agents yet</div>'}
+      </section><section class="settings-panel"><div class="dlabel" style="margin-top:16px">AGENT CONFIGURATION</div>
+      <div class="form-grid"><label>Name</label><input class="ipt" id="ag-name" placeholder="e.g. docs-writer"></div>
       <div class="form-grid"><label>title</label><input class="ipt" id="ag-title" placeholder="Docs Writer"></div>
       <div class="form-grid"><label>provider</label>
-        <select id="ag-prov"><option value="auto">auto (fallback aktif)</option>
-          ${pdefs.map(p => `<option value="${esc(p.name)}">${esc(p.name)} ${p.available ? '(aktif)' : '(off)'}</option>`).join('')}
+        <select id="ag-prov"><option value="auto">auto (active fallback)</option>
+          ${pdefs.map(p => `<option value="${esc(p.name)}">${esc(p.name)} ${p.available ? '(active)' : '(off)'}</option>`).join('')}
         </select></div>
       <div class="form-grid"><label>model</label><input class="ipt" id="ag-model" placeholder="opencode-go/glm-5.3"></div>
-      <div class="form-grid"><label>system</label><textarea class="ipt" id="ag-sys" placeholder="Kamu agen yang..."></textarea></div>
-      <div class="runbar"><button class="exe" id="ag-save">SIMPAN AGEN</button>
-        <button class="sec" id="ag-new">BARU</button>
-        <span class="hint">Pilih agen untuk mengedit, atau buat peran baru.</span></div>
+      <div class="form-grid"><label>Instructions</label><textarea class="ipt" id="ag-sys" placeholder="You are an agent who..."></textarea></div>
+      <div class="runbar"><button class="exe" id="ag-save">SAVE AGENT</button>
+        <button class="sec" id="ag-new">NEW</button>
+        <span class="hint">Select an agent to edit or create a new role.</span></div>
     </section></div>
     </div>`;
   d.querySelectorAll('[data-edit]').forEach(c => c.addEventListener('click', e => {
@@ -2018,7 +2033,7 @@ function renderAgents(d) {
     $('#ag-sys').value = a.system || '';
     d.querySelectorAll('.acard').forEach(x => x.classList.remove('editing'));
     c.classList.add('editing');
-    $('#ag-name').focus(); toast('Edit agen: ' + a.name);
+    $('#ag-name').focus(); toast('Edit agent: ' + a.name);
   }));
   const clearAgent = () => {
     ['ag-name', 'ag-title', 'ag-model', 'ag-sys'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -2027,14 +2042,14 @@ function renderAgents(d) {
   };
   $('#ag-new').addEventListener('click', clearAgent);
   d.querySelectorAll('[data-del]').forEach(x => x.addEventListener('click', async () => {
-    if (!confirm('Hapus agen ' + x.dataset.del + '?')) return;
+    if (!confirm('Delete agent ' + x.dataset.del + '?')) return;
     await api('/agents/delete', { name: x.dataset.del });
-    await loadAgents(); renderAgents(d); updateNavCounts(); toast('Agen dihapus: ' + x.dataset.del);
+    await loadAgents(); renderAgents(d); updateNavCounts(); toast('Agent deleted: ' + x.dataset.del);
   }));
   $('#ag-save').addEventListener('click', async () => {
-    const name = $('#ag-name').value.trim(); if (!name) { toast('Nama agen wajib', true); return; }
+    const name = $('#ag-name').value.trim(); if (!name) { toast('Agent name is required', true); return; }
     await api('/agents/create', { name, title: $('#ag-title').value.trim(), provider: $('#ag-prov').value, model: $('#ag-model').value.trim(), system: $('#ag-sys').value });
-    await loadAgents(); renderAgents(d); updateNavCounts(); toast('Agen tersimpan: ' + name);
+    await loadAgents(); renderAgents(d); updateNavCounts(); toast('Agent saved: ' + name);
   });
 }
 
@@ -2043,34 +2058,34 @@ function renderProviders(d) {
   const pdefs = state.providerDefs || [];
   d.innerHTML = `
     <div class="dhead"><h2>Providers <span class="tag">LLM</span></h2>
-      <p>Hubungkan model pilihanmu. Kelola koneksi HTTP dan CLI yang digunakan oleh seluruh tim agen.</p></div>
+      <p>Connect your models. Manage HTTP and CLI providers for the whole team.</p></div>
     <div class="wide">
-      <div class="runbar"><span class="badge">${pdefs.length} provider</span>
-        <span class="badge ${state.providers.length ? 'ok' : 'warn'}">${state.providers.length ? ('aktif: ' + state.providers.join(', ')) : 'belum ada yang aktif'}</span></div>
+      <div class="runbar"><span class="badge">${pdefs.length} providers</span>
+        <span class="badge ${state.providers.length ? 'ok' : 'warn'}">${state.providers.length ? ('active: ' + state.providers.join(', ')) : 'none active'}</span></div>
       <div class="management-grid"><section class="catalog">${pdefs.map(p => `<div class="acard" data-pedit="${esc(p.name)}" style="cursor:pointer"><div class="top">
         <b>${esc(p.title)}</b><span class="badge">${esc(p.name)}</span>
         <span class="badge">${esc(p.kind || 'http')}</span>
-        <span class="badge ${p.available ? 'ok' : ''}">${p.available ? 'AKTIF' : 'off'}</span>
+        <span class="badge ${p.available ? 'ok' : ''}">${p.available ? 'ACTIVE' : 'off'}</span>
         <span class="badge">${esc(p.model || '-')}</span>
-        <button class="x" data-del="${esc(p.name)}" aria-label="Hapus provider ${esc(p.name)}">hapus</button></div>
-        <div class="sys">${p.kind === 'cli' ? 'cli provider' : esc(p.base_url || '(base_url belum diisi)')}${p.api_key_env ? ' · key env: ' + esc(p.api_key_env) : ''}</div></div>`).join('')}
-      </section><section class="settings-panel"><div class="dlabel" style="margin-top:16px">KONFIGURASI PROVIDER</div>
-      <div class="form-grid"><label>nama</label><input class="ipt" id="pv-name" placeholder="opencode-go"></div>
-      <div class="form-grid"><label>title</label><input class="ipt" id="pv-title" placeholder="Opencode Go"></div>
-      <div class="form-grid"><label>kind</label>
+        <button class="x" data-del="${esc(p.name)}" aria-label="Delete provider ${esc(p.name)}">delete</button></div>
+        <div class="sys">${p.kind === 'cli' ? 'cli provider' : esc(p.base_url || '(base URL missing)')}${p.api_key_env ? ' · key env: ' + esc(p.api_key_env) : ''}</div></div>`).join('')}
+      </section><section class="settings-panel"><div class="dlabel" style="margin-top:16px">PROVIDER CONFIGURATION</div>
+      <div class="form-grid"><label>Name</label><input class="ipt" id="pv-name" placeholder="opencode-go"></div>
+      <div class="form-grid"><label>Title</label><input class="ipt" id="pv-title" placeholder="OpenCode Go"></div>
+      <div class="form-grid"><label>Type</label>
         <select id="pv-kind"><option value="http">http (base_url + key)</option><option value="cli">cli (command + model)</option></select></div>
-      <div class="form-grid"><label>base_url</label><input class="ipt" id="pv-url" placeholder="https://.../v1/chat/completions"></div>
-      <div class="form-grid"><label>api_key_env</label><input class="ipt" id="pv-env" placeholder="OPENCODE_GO_API_KEY"></div>
-      <div class="form-grid"><label>command</label><input class="ipt" id="pv-cmd" placeholder="cli: C:\\...\\opencode.exe|run"></div>
-      <div class="form-grid"><label>cwd</label>
+      <div class="form-grid"><label>Base URL</label><input class="ipt" id="pv-url" placeholder="https://.../v1/chat/completions"></div>
+      <div class="form-grid"><label>API key environment variable</label><input class="ipt" id="pv-env" placeholder="OPENCODE_GO_API_KEY"></div>
+      <div class="form-grid"><label>Command</label><input class="ipt" id="pv-cmd" placeholder="CLI: C:\\...\\opencode.exe|run"></div>
+      <div class="form-grid"><label>Working directory</label>
         <div class="row" style="gap:6px">
-          <input class="ipt" id="pv-cwd" placeholder="cli: working directory (opsional)">
+          <input class="ipt" id="pv-cwd" placeholder="CLI: optional working directory">
           <button class="sec" id="pv-cwd-browse">browse</button>
         </div></div>
-      <div class="form-grid"><label>model</label><input class="ipt" id="pv-model" placeholder="deepseek-v4.1-flash / opencode-go/deepseek-v4.1-flash"></div>
-      <div class="runbar"><button class="exe" id="pv-save">SIMPAN PROVIDER</button>
-        <button class="sec" id="pv-new">BARU</button>
-        <span class="hint">Pilih koneksi untuk mengedit pengaturannya.</span></div>
+      <div class="form-grid"><label>Model</label><input class="ipt" id="pv-model" placeholder="deepseek-v4.1-flash / opencode-go/deepseek-v4.1-flash"></div>
+      <div class="runbar"><button class="exe" id="pv-save">SAVE PROVIDER</button>
+        <button class="sec" id="pv-new">NEW</button>
+        <span class="hint">Select a provider to edit its settings.</span></div>
     </section></div>
     </div>`;
   d.querySelectorAll('[data-pedit]').forEach(c => c.addEventListener('click', e => {
@@ -2094,9 +2109,9 @@ function renderProviders(d) {
     d.querySelectorAll('.acard').forEach(x => x.classList.remove('editing'));
   });
   d.querySelectorAll('[data-del]').forEach(x => x.addEventListener('click', async () => {
-    if (!confirm('Hapus provider ' + x.dataset.del + '?')) return;
+    if (!confirm('Delete provider ' + x.dataset.del + '?')) return;
     await api('/providers/delete', { name: x.dataset.del });
-    await loadProviders(); renderProviders(d); updateNavCounts(); toast('Provider dihapus: ' + x.dataset.del);
+    await loadProviders(); renderProviders(d); updateNavCounts(); toast('Provider deleted: ' + x.dataset.del);
   }));
   const cwb = $('#pv-cwd-browse');
   if (cwb) cwb.addEventListener('click', () => openFsBrowser($('#pv-cwd'), 'dir'));
@@ -2105,15 +2120,15 @@ function renderProviders(d) {
     const kind = $('#pv-kind').value;
     const base_url = $('#pv-url').value.trim();
     const command = $('#pv-cmd').value.trim();
-    if (!name) { toast('Nama provider wajib', true); return; }
-    if (kind === 'http' && !base_url) { toast('kind http butuh base_url', true); return; }
-    if (kind === 'cli' && !command) { toast('kind cli butuh command', true); return; }
+    if (!name) { toast('Provider name is required', true); return; }
+    if (kind === 'http' && !base_url) { toast('HTTP providers require a base URL', true); return; }
+    if (kind === 'cli' && !command) { toast('CLI providers require a command', true); return; }
     await api('/providers/create', {
       name, title: $('#pv-title').value.trim(), kind, base_url,
       api_key_env: $('#pv-env').value.trim(), command,
       cwd: $('#pv-cwd').value.trim(), model: $('#pv-model').value.trim(),
     });
-    await loadProviders(); renderProviders(d); updateNavCounts(); toast('Provider tersimpan: ' + name);
+    await loadProviders(); renderProviders(d); updateNavCounts(); toast('Provider saved: ' + name);
   });
 }
 
@@ -2173,25 +2188,25 @@ function renderChat(d) {
       <div class="dhead" style="padding:14px 22px 8px">
         <h2>Chat <span class="tag">LLM</span></h2>
         <div class="row" style="margin-top:8px;gap:10px;flex-wrap:wrap">
-          <span class="badge ok">AUTO · model dipilih otomatis</span>
+          <span class="badge ok">AUTO · model selected automatically</span>
           <select id="ch-mode" style="max-width:180px">
-            <option value="auto" ${state.chat.mode === 'auto' ? 'selected' : ''}>Mode: Otomatis</option>
+            <option value="auto" ${state.chat.mode === 'auto' ? 'selected' : ''}>Mode: Automatic</option>
             <option value="approval" ${state.chat.mode === 'approval' ? 'selected' : ''}>Mode: Approval</option>
           </select>
-          <input class="ipt" id="ch-sys" placeholder="system prompt (opsional)" style="max-width:340px" value="${esc(state.chat.system)}">
-          <button class="sec" id="ch-clear">bersihkan</button>
-          <span class="badge ${provs.length ? 'ok' : 'warn'}">${provs.length ? ('live: ' + provs.join(', ')) : 'tak ada provider aktif'}</span>
+          <input class="ipt" id="ch-sys" placeholder="Optional system prompt" style="max-width:340px" value="${esc(state.chat.system)}">
+          <button class="sec" id="ch-clear">Clear chat</button>
+          <span class="badge ${provs.length ? 'ok' : 'warn'}">${provs.length ? ('live: ' + provs.join(', ')) : 'no active provider'}</span>
         </div>
       </div>
       ${ctxStrip()}
-      <details class="chat-room"><summary>Ruang kerja tim <span>lihat visual 2D</span></summary><div class="stage-wrap">
+      <details class="chat-room"><summary>Team workspace <span>view 2D scene</span></summary><div class="stage-wrap">
         <div class="cap"><span>STUDIO</span><span class="r" id="ch-stage-cap">idle</span></div>
         <canvas id="chat-stage"></canvas>
       </div></details>
       <div class="chat-log" id="ch-log"></div>
       <div class="chatbar">
-        <textarea class="ipt" id="ch-in" placeholder="Tulis pesan... (Enter kirim, Shift+Enter baris baru)"></textarea>
-        <button class="exe" id="ch-send">KIRIM</button>
+        <textarea class="ipt" id="ch-in" placeholder="Write a message... (Enter to send, Shift+Enter for a new line)"></textarea>
+        <button class="exe" id="ch-send">SEND</button>
       </div>
     </div>`;
   if (chatStage) { chatStage.destroy(); chatStage = null; }
@@ -2205,10 +2220,10 @@ function renderChat(d) {
   const renderMsgs = () => {
     log.innerHTML = state.chat.msgs.map(m => `
       <div class="msg ${m.role}">
-        <div class="who">${m.role === 'user' ? 'KAMU' : esc(m.agent ? m.agent.toUpperCase() : 'AI')}</div>
+        <div class="who">${m.role === 'user' ? 'YOU' : esc(m.agent ? m.agent.toUpperCase() : 'AI')}</div>
         <div class="body">${m.role === 'assistant' ? mdLite(m.content) : esc(m.content)}</div>
         ${m.meta ? `<div class="meta">${esc(m.meta)}</div>` : ''}
-      </div>`).join('') || '<div class="chat-welcome"><div class="welcome-mark">✳</div><h3>Apa yang ingin dikerjakan?</h3><p>Tulis tugas atau pertanyaan. Percakapan mengikuti proyek yang sedang dipilih.</p></div>';
+      </div>`).join('') || '<div class="chat-welcome"><div class="welcome-mark">✳</div><h3>What would you like to work on?</h3><p>Enter a task or question. The conversation uses the selected project.</p></div>';
     log.scrollTop = state.chat.msgs.length ? log.scrollHeight : 0;
   };
   renderMsgs();
@@ -2224,21 +2239,21 @@ function renderChat(d) {
   const removeConfirm = () => { const c = document.getElementById('ch-confirm'); if (c) c.remove(); };
   const showConfirm = (nextAgent) => {
     removeConfirm();
-    log.insertAdjacentHTML('beforeend', `<div class="msg assistant" id="ch-confirm"><div class="who">MENUNGGU KONFIRMASI</div>
+    log.insertAdjacentHTML('beforeend', `<div class="msg assistant" id="ch-confirm"><div class="who">AWAITING CONFIRMATION</div>
       <div class="body">
-        <div class="hint" style="margin-bottom:6px">Tahap berikutnya: <b>${esc(nextAgent)}</b>. Tulis catatan/keputusan lalu kirim, atau ketik "lanjut".</div>
+        <div class="hint" style="margin-bottom:6px">Next step: <b>${esc(nextAgent)}</b>. Add a note or decision, or type "continue".</div>
         <div class="row" style="gap:8px">
-          <input class="ipt" id="cf-in" placeholder="mis. Nama: Kopi Senja; gaya: hangat; warna coklat">
-          <button class="exe" id="cf-go">LANJUT</button>
+          <input class="ipt" id="cf-in" placeholder="e.g. Name: Coffee House; style: warm; color: brown">
+          <button class="exe" id="cf-go">CONTINUE</button>
           <button class="sec" id="cf-stop">STOP</button>
         </div>
       </div></div>`);
     log.scrollTop = log.scrollHeight;
-    $('#cf-go').addEventListener('click', () => confirmContinue($('#cf-in').value.trim() || 'lanjut'));
+    $('#cf-go').addEventListener('click', () => confirmContinue($('#cf-in').value.trim() || 'continue'));
     $('#cf-stop').addEventListener('click', () => {
       removeConfirm();
       if (state.chat.wf) { state.chat.wf = null; }
-      state.chat.msgs.push({ role: 'assistant', content: 'Workflow dihentikan.', meta: 'stop' });
+      state.chat.msgs.push({ role: 'assistant', content: 'Workflow stopped.', meta: 'stop' });
       renderMsgs();
     });
     const ci = $('#cf-in'); if (ci) ci.focus();
@@ -2249,25 +2264,25 @@ function renderChat(d) {
     state.chat.msgs.push({ role: 'user', content: note });
     renderMsgs();
     state.chat.wf.paused = false;
-    state.chat.wf.ctx += '\n\nCatatan/keputusan user: ' + note;
+    state.chat.wf.ctx += '\n\nUser note or decision: ' + note;
     wfRun();
   }
   async function wfRun() {
     const w = state.chat.wf; if (!w) return;
     if (w.idx >= w.steps.length) {
       state.chat.wf = null;
-      state.chat.msgs.push({ role: 'assistant', content: 'Workflow selesai. Semua tahap sudah dijalankan.', meta: 'workflow' });
-      renderMsgs(); toast('Workflow selesai');
+      state.chat.msgs.push({ role: 'assistant', content: 'Workflow complete. All steps have run.', meta: 'workflow' });
+      renderMsgs(); toast('Workflow complete');
       return;
     }
     const st = w.steps[w.idx];
     const ag = agents.find(a => a.name === st.agent) || { name: st.agent, title: st.agent, provider: '' };
-    addWait((ag.title || ag.name) + ' mengerjakan...');
+    addWait((ag.title || ag.name) + ' is working...');
     let walking = null;
     if (chatStage) {
       const a = chatStage.ensureAgent(ag.name, ag.title, ag.provider);
       chatStage.activeName = ag.name;
-      $('#ch-stage-cap').textContent = (ag.title || ag.name) + ' mengerjakan...';
+      $('#ch-stage-cap').textContent = (ag.title || ag.name) + ' is working...';
       walking = (async () => { await chatStage.walkTo(a, chatStage.meeting); if (chatStage && !chatStage._dead) a.talking = true; })();
     }
     const t0 = performance.now();
@@ -2276,10 +2291,10 @@ function renderChat(d) {
       const s = r.structuredContent || r;
       const ms = Math.round(performance.now() - t0);
       if (s.error) throw new Error(JSON.stringify(s.error));
-      state.chat.msgs.push({ role: 'assistant', agent: st.agent, content: s.content || '(kosong)', meta: `${ag.title} · ${s.provider || ''} · ${ms} ms` });
+      state.chat.msgs.push({ role: 'assistant', agent: st.agent, content: s.content || '(empty)', meta: `${ag.title} · ${s.provider || ''} · ${ms} ms` });
       w.ctx += '\n\n[' + st.agent + ']\n' + (s.content || '');
     } catch (e) {
-      state.chat.msgs.push({ role: 'assistant', agent: st.agent, content: 'Error: ' + e.message, meta: 'gagal' });
+      state.chat.msgs.push({ role: 'assistant', agent: st.agent, content: 'Error: ' + e.message, meta: 'failed' });
     } finally {
       removeWait(); renderMsgs();
       if (walking) await Promise.race([walking.catch(() => {}), new Promise(r => setTimeout(r, 3000))]);
@@ -2292,7 +2307,7 @@ function renderChat(d) {
       if (w.mode === 'approval') {
         w.paused = true;
         const next = w.steps[w.idx];
-        state.chat.msgs.push({ role: 'assistant', content: `Tahap ${w.idx}/${w.steps.length} selesai. Berikutnya: ${next.agent}. Balas untuk konfirmasi/catatan, atau ketik "lanjut".`, meta: 'menunggu konfirmasi' });
+        state.chat.msgs.push({ role: 'assistant', content: `Step ${w.idx}/${w.steps.length} complete. Next: ${next.agent}. Reply with a confirmation or note, or type "continue".`, meta: 'awaiting confirmation' });
         renderMsgs();
         showConfirm(next.agent);
       } else {
@@ -2300,12 +2315,12 @@ function renderChat(d) {
       }
     } else {
       state.chat.wf = null;
-      state.chat.msgs.push({ role: 'assistant', content: `Workflow selesai. ${w.steps.length} tahap dijalankan.`, meta: 'workflow' });
-      renderMsgs(); toast('Workflow selesai');
+      state.chat.msgs.push({ role: 'assistant', content: `Workflow complete. ${w.steps.length} steps completed.`, meta: 'workflow' });
+      renderMsgs(); toast('Workflow complete');
     }
   }
   async function singleChat(text) {
-    addWait('memilih model & berpikir...');
+    addWait('selecting a model and thinking...');
     let pick = null;
     try { const rr = await api('/route?message=' + encodeURIComponent(text)); pick = rr.structuredContent || rr; } catch (e) {}
     let walking = null;
@@ -2324,11 +2339,11 @@ function renderChat(d) {
       });
       const s = r.structuredContent || r;
       const ms = Math.round(performance.now() - t0);
-      if (s.error || !s.content) throw new Error(s.error ? JSON.stringify(s.error) : 'jawaban kosong');
+      if (s.error || !s.content) throw new Error(s.error ? JSON.stringify(s.error) : 'empty response');
       state.chat.msgs.push({ role: 'assistant', agent: s.agent || '', content: s.content, meta: `${(s.title || s.agent || '')} · ${s.model || ''} · ${ms} ms` });
-      if (chatStage) $('#ch-stage-cap').textContent = (s.title || s.agent || 'AI') + ' selesai';
+      if (chatStage) $('#ch-stage-cap').textContent = (s.title || s.agent || 'AI') + ' complete';
     } catch (e) {
-      state.chat.msgs.push({ role: 'assistant', content: 'Error: ' + e.message, meta: 'gagal' });
+      state.chat.msgs.push({ role: 'assistant', content: 'Error: ' + e.message, meta: 'failed' });
       if (chatStage) $('#ch-stage-cap').textContent = 'error';
     } finally {
       removeWait(); renderMsgs();
@@ -2345,7 +2360,7 @@ function renderChat(d) {
     state.chat.msgs.push({ role: 'user', content: text });
     renderMsgs();
     if (state.chat.wf && state.chat.wf.paused) { confirmContinue(text); return; }
-    addWait('menyusun rencana...');
+    addWait('building a plan...');
     let plan = null;
     try { const pr = await api('/plan?message=' + encodeURIComponent(text)); plan = pr.structuredContent || pr; } catch (e) {}
     removeWait();
@@ -2355,7 +2370,7 @@ function renderChat(d) {
         try { const prr = await api('/projects/resolve', { hint: text }); const ps = prr.structuredContent || prr; if (ps.resolved && ps.project) project = ps.project; } catch (e) {}
       }
       state.chat.wf = { steps: plan.steps, idx: 0, ctx: '', project, paused: false, mode: state.chat.mode };
-      state.chat.msgs.push({ role: 'assistant', content: 'Workflow otomatis (' + (state.chat.mode === 'approval' ? 'mode approval' : 'mode otomatis') + '): ' + plan.steps.map(s => s.agent).join(' → ') + (project ? ('\nProject: ' + project) : ''), meta: 'workflow · ' + (plan.reason || '') });
+      state.chat.msgs.push({ role: 'assistant', content: 'Automatic workflow (' + (state.chat.mode === 'approval' ? 'approval mode' : 'automatic mode') + '): ' + plan.steps.map(s => s.agent).join(' → ') + (project ? ('\nProject: ' + project) : ''), meta: 'workflow · ' + (plan.reason || '') });
       renderMsgs();
       wfRun();
       return;
@@ -2371,36 +2386,36 @@ async function renderDocs(d) {
   const lm = state._lm || [];
   const item = (state.sel != null) ? lm[state.sel] : null;
 
-  /* --- pratinjau dokumen tersimpan --- */
+  /* --- saved document preview --- */
   if (item && item.kind === 'doc') {
     d.innerHTML = `
-      <div class="dhead"><h2>${esc(item.file)} <span class="tag">DOKUMEN</span></h2>
-        <p>Project <b>${esc(item.project)}</b> — pratinjau dokumen tersimpan.</p></div>
+      <div class="dhead"><h2>${esc(item.file)} <span class="tag">DOCUMENT</span></h2>
+        <p>Project <b>${esc(item.project)}</b> — saved document preview.</p></div>
       ${ctxStrip()}
       <div class="docmeta">
         <span class="f">docs/${esc(item.file)}</span>
         <span class="sp"></span>
-        <button class="sec" id="dc-reload">muat ulang</button>
-        <button class="sec" id="dc-new">+ dokumen baru</button>
-        <button class="sec" id="dc-del">hapus</button>
+        <button class="sec" id="dc-reload">Reload</button>
+        <button class="sec" id="dc-new">+ new document</button>
+        <button class="sec" id="dc-del">delete</button>
       </div>
-      <div class="wide"><div class="docbox" id="dc-out"><div class="hint"><span class="spinner"></span>memuat...</div></div></div>`;
+      <div class="wide"><div class="docbox" id="dc-out"><div class="hint"><span class="spinner"></span>loading...</div></div></div>`;
     wireCtx(d);
     const show = async () => {
       const box = d.querySelector('#dc-out');
-      box.innerHTML = '<div class="hint"><span class="spinner"></span>memuat...</div>';
+      box.innerHTML = '<div class="hint"><span class="spinner"></span>loading...</div>';
       try {
         const type = item.file.replace(/\.md$/i, '');
         const s = toolOut(await api('/doc?project=' + encodeURIComponent(item.project)
           + '&type=' + encodeURIComponent(type)));
         box.innerHTML = (s.exists === false)
-          ? '<div class="hint">file tidak ditemukan.</div>' : mdLite(s.content || '');
+          ? '<div class="hint">file not found.</div>' : mdLite(s.content || '');
       } catch (e) { box.innerHTML = '<div class="hint">error: ' + esc(e.message) + '</div>'; }
     };
     d.querySelector('#dc-reload').addEventListener('click', show);
     d.querySelector('#dc-new').addEventListener('click', () => { state.sel = 0; renderList(); renderDetail(); });
     d.querySelector('#dc-del').addEventListener('click', async () => {
-      if (!confirm('Hapus docs/' + item.file + ' ? Tindakan ini permanen.')) return;
+      if (!confirm('Delete docs/' + item.file + '? This action cannot be undone.')) return;
       try {
         toolOut(await api('/docs/delete', {
           project: item.project, type: item.file.replace(/\.md$/i, ''),
@@ -2408,8 +2423,8 @@ async function renderDocs(d) {
         state.sel = null;
         await loadProjectData(); updateNavCounts();
         renderList(); renderDetail();
-        toast('Dokumen dihapus: docs/' + item.file);
-      } catch (e) { toast('Gagal: ' + e.message, true); }
+        toast('Document deleted: docs/' + item.file);
+      } catch (e) { toast('Failed: ' + e.message, true); }
     });
     show();
     return;
@@ -2418,43 +2433,43 @@ async function renderDocs(d) {
   /* --- generator dokumen baru --- */
   const projRow = state.active
     ? `<div class="form-grid"><label>Project</label><div><b>${esc(state.active)}</b>
-         <span class="hint">— ganti lewat pemilih di header</span></div></div>`
+         <span class="hint">— change from the project selector above</span></div></div>`
     : `<div class="form-grid"><label>Project</label><div>
          <select id="dc-project" style="max-width:320px">${
            (state.projects || []).map(p => `<option value="${esc(p.project)}">${esc(p.project)}</option>`).join('')
-           || '<option value="">(belum ada project)</option>'}</select>
-         <div class="hint">pilih project tujuan dokumen</div></div></div>`;
+           || '<option value="">(no projects yet)</option>'}</select>
+         <div class="hint">choose the destination project</div></div></div>`;
   d.innerHTML = `
-    <div class="dhead"><h2>Dokumen baru <span class="tag">GENERATE</span></h2>
-      <p>Buat PRD / BRD otomatis dari konteks, lalu simpan ke <code>docs/</code> project.</p></div>
+    <div class="dhead"><h2>New document <span class="tag">GENERATE</span></h2>
+      <p>Generate a PRD or BRD from your project context and save it under <code>docs/</code>.</p></div>
     ${ctxStrip()}
     <div class="wide">
       ${projRow}
-      <div class="form-grid"><label>Jenis</label><div class="row">
+      <div class="form-grid"><label>Type</label><div class="row">
         <select id="dc-type" style="max-width:160px">
           <option value="PRD">PRD</option><option value="BRD">BRD</option></select>
-        <span class="hint">disimpan sebagai <b>docs/&lt;JENIS&gt;.md</b></span></div></div>
-      <div class="form-grid"><label>Judul</label>
-        <input class="ipt" id="dc-title" placeholder="mis. PRD — Integrasi ERP"></div>
-      <div class="form-grid"><label>Konteks</label>
-        <textarea class="ipt" id="dc-context" placeholder="Deskripsi goal / fitur / batasan..."></textarea></div>
+        <span class="hint">saved as <b>docs/&lt;TYPE&gt;.md</b></span></div></div>
+      <div class="form-grid"><label>Title</label>
+        <input class="ipt" id="dc-title" placeholder="e.g. PRD — ERP integration"></div>
+      <div class="form-grid"><label>Context</label>
+        <textarea class="ipt" id="dc-context" placeholder="Describe the goal, features, and constraints..."></textarea></div>
       <div class="runbar">
-        <button class="exe" id="dc-gen">GENERATE + SIMPAN (AI)</button>
-        <button class="sec" id="dc-chk">ISI CHECKLIST</button>
+        <button class="exe" id="dc-gen">GENERATE & SAVE (AI)</button>
+        <button class="sec" id="dc-chk">FILL CHECKLIST</button>
         <span class="hint" id="dc-info"></span>
       </div>
-      <div class="docbox" id="dc-out"><div class="hint">Hasil akan muncul di sini.</div></div>
+      <div class="docbox" id="dc-out"><div class="hint">Results will appear here.</div></div>
       <div id="dc-fields" style="margin-top:16px"></div>
     </div>`;
   wireCtx(d);
   const curProj = () => state.active || (d.querySelector('#dc-project') ? d.querySelector('#dc-project').value : '');
   d.querySelector('#dc-gen').addEventListener('click', async () => {
     const proj = curProj();
-    if (!proj) { toast('Pilih project dulu', true); return; }
+    if (!proj) { toast('Select a project first', true); return; }
     const btn = d.querySelector('#dc-gen');
     const originalLabel = btn.innerHTML;
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>GENERATE';
-    d.querySelector('#dc-out').innerHTML = '<div class="hint">membuat dokumen... (10-30 detik)</div>';
+    d.querySelector('#dc-out').innerHTML = '<div class="hint">generating document... (10–30 seconds)</div>';
     try {
       const s = toolOut(await api('/doc', {
         project: proj, type: d.querySelector('#dc-type').value,
@@ -2462,24 +2477,24 @@ async function renderDocs(d) {
         context: d.querySelector('#dc-context').value.trim(), save: true,
       }));
       const meta = `${esc(s.type)} · ${s.generated
-        ? ('digenerate ' + esc((s.used && s.used.model) || ''))
-        : 'template (tak ada model aktif)'}${s.file ? ' · disimpan: docs/' + esc(s.type) + '.md' : ''}`;
+        ? ('generated with ' + esc((s.used && s.used.model) || ''))
+        : 'template (no active model)'}${s.file ? ' · saved: docs/' + esc(s.type) + '.md' : ''}`;
       d.querySelector('#dc-out').innerHTML = `<div class="hint" style="margin-bottom:8px">${meta}</div>${mdLite(s.content || '')}`;
       await loadProjectData(); updateNavCounts(); renderList();
-      toast('Dokumen disimpan: docs/' + s.type + '.md');
+      toast('Document saved: docs/' + s.type + '.md');
     } catch (e) {
       d.querySelector('#dc-out').innerHTML = '<div class="hint">error: ' + esc(e.message) + '</div>';
-    } finally { btn.disabled = false; btn.textContent = 'GENERATE + SIMPAN (AI)'; }
+    } finally { btn.disabled = false; btn.textContent = 'GENERATE & SAVE (AI)'; }
   });
 
   d.querySelector('#dc-chk').addEventListener('click', async () => {
     const type = d.querySelector('#dc-type').value;
     const box = d.querySelector('#dc-fields');
-    box.innerHTML = '<div class="hint"><span class="spinner"></span>memuat checklist...</div>';
+    box.innerHTML = '<div class="hint"><span class="spinner"></span>loading checklist...</div>';
     try {
       const qs = toolOut(await api('/docs/questions?type=' + encodeURIComponent(type))).questions || [];
       box.innerHTML = `
-        <div class="dlabel">CHECKLIST ${esc(type)} — isi yang Anda tahu, sisanya boleh kosong</div>
+        <div class="dlabel">CHECKLIST ${esc(type)} — fill in what you know; leave the rest blank</div>
         <div class="fields">${qs.map(q => `
           <div class="field" style="grid-template-columns:1fr;align-items:start">
             <label>${esc(q.section)}${q.required ? '<span class="req"> *</span>' : ''}
@@ -2488,58 +2503,58 @@ async function renderDocs(d) {
             <textarea class="ipt chk" data-k="${esc(q.id)}" style="min-height:54px"></textarea>
           </div>`).join('')}</div>
         <div class="runbar">
-          <button class="exe" id="dc-build">BUAT DARI CHECKLIST</button>
-          <span class="hint">dokumen dibangun tanpa LLM dan langsung disimpan</span>
+          <button class="exe" id="dc-build">BUILD FROM CHECKLIST</button>
+          <span class="hint">Build and save the document without an LLM</span>
         </div>`;
       box.querySelector('#dc-build').addEventListener('click', async () => {
         const target = curProj();
-        if (!target) { toast('Pilih project dulu', true); return; }
+        if (!target) { toast('Select a project first', true); return; }
         const fields = {};
         box.querySelectorAll('textarea.chk').forEach(t => {
           const v = t.value.trim(); if (v) fields[t.dataset.k] = v;
         });
         const btn = box.querySelector('#dc-build');
         const originalLabel = btn.innerHTML;
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>MEMBUAT';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>CREATING';
         try {
           const s = toolOut(await api('/docs/build', {
             project: target, type,
             title: d.querySelector('#dc-title').value.trim() || undefined, fields,
           }));
           d.querySelector('#dc-out').innerHTML =
-            `<div class="hint" style="margin-bottom:8px">${esc(s.type)} · ${s.filled.length} bagian terisi, `
-            + `${s.missing.length} belum · disimpan: docs/${esc(s.type)}.md</div>${mdLite(s.content || '')}`;
+            `<div class="hint" style="margin-bottom:8px">${esc(s.type)} · ${s.filled.length} sections completed, `
+            + `${s.missing.length} missing · saved: docs/${esc(s.type)}.md</div>${mdLite(s.content || '')}`;
           await loadProjectData(); updateNavCounts(); renderList();
-          toast('Dokumen dibuat: docs/' + s.type + '.md');
-        } catch (e) { toast('Gagal: ' + e.message, true); }
-        finally { btn.disabled = false; btn.textContent = 'BUAT DARI CHECKLIST'; }
+          toast('Document created: docs/' + s.type + '.md');
+        } catch (e) { toast('Failed: ' + e.message, true); }
+        finally { btn.disabled = false; btn.textContent = 'BUILD FROM CHECKLIST'; }
       });
     } catch (e) {
-      box.innerHTML = '<div class="hint">gagal memuat checklist: ' + esc(e.message) + '</div>';
+      box.innerHTML = '<div class="hint">Could not load checklist: ' + esc(e.message) + '</div>';
     }
   });
 }
 
-/* ---------- view: Catatan ---------- */
+/* ---------- view: Notes ---------- */
 function renderNotes(d) {
   const projRow = state.active
     ? `<div class="form-grid"><label>Project</label><div><b>${esc(state.active)}</b>
-         <span class="hint">— ganti lewat pemilih di header</span></div></div>`
+         <span class="hint">— change from the project selector above</span></div></div>`
     : `<div class="form-grid"><label>Project</label><div>
          <select id="nt-project" style="max-width:320px">${
            (state.projects || []).map(p => `<option value="${esc(p.project)}">${esc(p.project)}</option>`).join('')
-           || '<option value="">(belum ada project)</option>'}</select>
-         <div class="hint">catatan akan disimpan ke project ini</div></div></div>`;
+           || '<option value="">(no projects yet)</option>'}</select>
+         <div class="hint">notes will be saved to this project</div></div></div>`;
   d.innerHTML = `
-    <div class="dhead"><h2>Catatan <span class="tag">PROYEK</span></h2>
-      <p>Catatan &amp; keputusan per project, dikelompokkan per tanggal.</p></div>
+    <div class="dhead"><h2>Notes <span class="tag">PROJECTS</span></h2>
+      <p>Project notes and decisions, grouped by date.</p></div>
     ${ctxStrip()}
     <div class="wide">
       ${projRow}
-      <div class="form-grid"><label>Catatan baru</label>
+      <div class="form-grid"><label>New note</label>
         <div class="addbar">
-          <textarea class="ipt" id="nt-text" placeholder="Tulis catatan / keputusan..."></textarea>
-          <button class="exe" id="nt-add">TAMBAH</button>
+          <textarea class="ipt" id="nt-text" placeholder="Write a note or decision..."></textarea>
+          <button class="exe" id="nt-add">ADD</button>
         </div></div>
       <div class="section" id="nt-list"></div>
     </div>`;
@@ -2559,12 +2574,12 @@ function renderNotes(d) {
       const notes = state.notes[p.project] || [];
       if (!state.active) {
         h += `<div class="dlabel" style="margin-top:16px">${esc(p.project)}
-          <span class="hint">${notes.length} catatan</span></div>`;
+          <span class="hint">${notes.length} notes</span></div>`;
       }
-      if (!notes.length) { h += '<div class="hint">belum ada catatan untuk project ini</div>'; return; }
+      if (!notes.length) { h += '<div class="hint">No notes for this project yet.</div>'; return; }
       const byDay = {};
       notes.forEach((n, i) => {
-        const day = (n.time || '').slice(0, 10) || '(tanpa tanggal)';
+        const day = (n.time || '').slice(0, 10) || '(undated)';
         (byDay[day] = byDay[day] || []).push({ n, i });
       });
       Object.keys(byDay).sort().reverse().forEach(day => {
@@ -2575,13 +2590,13 @@ function renderNotes(d) {
             <div class="nh">${t ? `<span class="t">${esc(t)}</span>` : ''}
               <span class="nact">
                 <button class="minibtn" data-edit="${i}">edit</button>
-                <button class="minibtn del" data-del="${i}">hapus</button>
+                <button class="minibtn del" data-del="${i}">delete</button>
               </span></div>
             <div class="nb">${esc(n.text)}</div></div>`;
         });
       });
     });
-    list.innerHTML = h || '<div class="hint">belum ada catatan</div>';
+    list.innerHTML = h || '<div class="hint">no notes yet</div>';
     wire();
   };
 
@@ -2597,8 +2612,8 @@ function renderNotes(d) {
         <div class="nedit">
           <textarea class="ipt"></textarea>
           <div class="row" style="margin-top:6px">
-            <button class="exe" data-save="1">SIMPAN</button>
-            <button class="sec" data-cancel="1">BATAL</button>
+            <button class="exe" data-save="1">SAVE</button>
+            <button class="sec" data-cancel="1">CANCEL</button>
           </div>
         </div>`;
       const ta = item.querySelector('textarea');
@@ -2606,12 +2621,12 @@ function renderNotes(d) {
       ta.focus();
       item.querySelector('[data-save]').addEventListener('click', async () => {
         const text = ta.value.trim();
-        if (!text) { toast('Catatan kosong', true); return; }
+        if (!text) { toast('Note cannot be empty', true); return; }
         try {
           toolOut(await api('/notes/update', { project: proj, index: i, text }));
           await refreshNotes(proj); paint();
-          toast('Catatan diperbarui');
-        } catch (e) { toast('Gagal: ' + e.message, true); }
+          toast('Note updated');
+        } catch (e) { toast('Failed: ' + e.message, true); }
       });
       item.querySelector('[data-cancel]').addEventListener('click', paint);
     }));
@@ -2619,27 +2634,27 @@ function renderNotes(d) {
       const item = b.closest('.noteitem');
       const proj = item.dataset.proj, i = +item.dataset.i;
       const cur = (state.notes[proj] || [])[i] || {};
-      if (!confirm('Hapus catatan ini?\n\n' + String(cur.text || '').slice(0, 160))) return;
+      if (!confirm('Delete this note?\n\n' + String(cur.text || '').slice(0, 160))) return;
       try {
         toolOut(await api('/notes/delete', { project: proj, index: i }));
         await refreshNotes(proj); paint();
-        toast('Catatan dihapus');
-      } catch (e) { toast('Gagal: ' + e.message, true); }
+        toast('Note deleted');
+      } catch (e) { toast('Failed: ' + e.message, true); }
     }));
   };
 
   const curProj = () => state.active || (d.querySelector('#nt-project') ? d.querySelector('#nt-project').value : '');
   d.querySelector('#nt-add').addEventListener('click', async () => {
     const proj = curProj(), text = d.querySelector('#nt-text').value.trim();
-    if (!proj) { toast('Pilih project dulu', true); return; }
-    if (!text) { toast('Catatan masih kosong', true); return; }
+    if (!proj) { toast('Select a project first', true); return; }
+    if (!text) { toast('Write a note first', true); return; }
     try {
       toolOut(await api('/notes', { project: proj, text }));
       d.querySelector('#nt-text').value = '';
       await refreshNotes(proj);
       paint();
-      toast('Catatan ditambahkan');
-    } catch (e) { toast('Gagal: ' + e.message, true); }
+      toast('Note added');
+    } catch (e) { toast('Failed: ' + e.message, true); }
   });
   if (d.querySelector('#nt-project')) d.querySelector('#nt-project').addEventListener('change', paint);
   paint();
@@ -2653,15 +2668,15 @@ function renderPrompts(d) {
     const n = (state.prompts || []).filter(x =>
       state.active ? x.name.indexOf(state.active + '/') === 0 : true).length;
     d.innerHTML = `
-      <div class="dhead"><h2>Prompts <span class="tag">PROYEK</span></h2>
-        <p>Prompt template per project (<code>.mcp/prompts/</code>). Pilih satu di kolom kiri untuk mengisi argumen lalu menjalankannya.</p></div>
+      <div class="dhead"><h2>Prompts <span class="tag">PROJECTS</span></h2>
+        <p>Project prompt templates (<code>.mcp/prompts/</code>). Select one on the left, fill in its arguments, and run it.</p></div>
       ${ctxStrip()}
-      <div class="wide"><div class="hint">${n} prompt tersedia. Pilih dari kolom kiri.</div></div>`;
+      <div class="wide"><div class="hint">${n} prompts available. Select one on the left.</div></div>`;
     wireCtx(d);
     return;
   }
   const p = (state.prompts || []).find(x => x.name === item.name);
-  if (!p) { d.innerHTML = '<div class="empty">prompt tidak ditemukan</div>'; return; }
+  if (!p) { d.innerHTML = '<div class="empty">prompt not found</div>'; return; }
   d.innerHTML = ctxStrip();
   const box = document.createElement('div');
   d.appendChild(box);
@@ -2669,7 +2684,7 @@ function renderPrompts(d) {
   wireCtx(d);
 }
 
-/* ---------- view: Ringkasan ---------- */
+/* ---------- view: Overview ---------- */
 function renderOverview(d) {
   if (!state.active) return renderPortfolio(d);
   const p = projObj() || {};
@@ -2681,41 +2696,41 @@ function renderOverview(d) {
     `<div class="hm-card${bad ? ' bad' : ''}"><div class="hm-v">${esc(val)}</div>
      <div class="hm-l">${esc(label)}</div>${sub ? `<div class="hm-s">${esc(sub)}</div>` : ''}</div>`;
   d.innerHTML = `
-    <div class="dhead"><h2>${esc(p.project || state.active)} <span class="tag">RINGKASAN</span></h2>
-      <p>Dokumen, catatan, dan tim untuk proyek ini.</p></div>
+    <div class="dhead"><h2>${esc(p.project || state.active)} <span class="tag">OVERVIEW</span></h2>
+      <p>Documents, notes, and team for this project.</p></div>
     ${ctxStrip()}
     <div class="wide">
       ${workspaceHero()}
       <div class="hm-grid">
-        ${card('Dokumen', docs.length, docs.join(', ') || 'belum ada')}
-        ${card('Catatan', notes.length, notes.length ? ('terbaru: ' + ((notes[notes.length - 1].time) || '')) : 'belum ada')}
-        ${card('Prompt', prompts.length, 'template project')}
-        ${card('Provider', provs.length, provs.join(', ') || 'belum aktif', !provs.length)}
+        ${card('Documents', docs.length, docs.join(', ') || 'none yet')}
+        ${card('Notes', notes.length, notes.length ? ('latest: ' + ((notes[notes.length - 1].time) || '')) : 'none yet')}
+        ${card('Prompt', prompts.length, 'project templates')}
+        ${card('Provider', provs.length, provs.join(', ') || 'inactive', !provs.length)}
       </div>
       ${quickActions()}
       <div class="section">
-        <div class="dlabel">JELAJAHI WORKSPACE</div>
+        <div class="dlabel">EXPLORE WORKSPACE</div>
         <div class="pillrow">
           <button class="exe" data-go="p-chat">Chat</button>
           <button class="sec" data-go="p-orch">Orchestrate</button>
           <button class="sec" data-go="p-docs">Docs</button>
-          <button class="sec" data-go="p-notes">Catatan</button>
+          <button class="sec" data-go="p-notes">Notes</button>
           <button class="sec" data-go="p-prompts">Prompts</button>
         </div>
       </div>
       <div class="section">
-        <div class="dlabel">LOKASI PROJECT</div>
+        <div class="dlabel">PROJECT LOCATION</div>
         <dl class="kv">
-          <dt>nama</dt><dd>${esc(p.project || state.active)}</dd>
+          <dt>name</dt><dd>${esc(p.project || state.active)}</dd>
           <dt>path</dt><dd>${esc(p.path || '-')}</dd>
-          <dt>status</dt><dd>${p.active ? 'aktif' : 'tidak aktif'}</dd>
+          <dt>status</dt><dd>${p.active ? 'active' : 'inactive'}</dd>
         </dl>
       </div>
       <div class="section">
-        <div class="dlabel">BERKAS PROJECT<span class="hint" id="ov-fs-info"></span></div>
-        <div class="filelist" id="ov-files"><span class="hint">memuat...</span></div>
+        <div class="dlabel">PROJECT FILES<span class="hint" id="ov-fs-info"></span></div>
+        <div class="filelist" id="ov-files"><span class="hint">loading...</span></div>
       </div>
-      ${(state.hist || []).length ? `<div class="section"><div class="dlabel">AKTIVITAS TERAKHIR</div>
+      ${(state.hist || []).length ? `<div class="section"><div class="dlabel">RECENT ACTIVITY</div>
         <div class="tl" style="max-width:720px">${state.hist.slice(0, 6).map(h =>
           `<div class="turn ${h.err ? 'reviewer' : 'architect'}"><div class="th"><b>${esc(h.label)}</b>
            <span class="prov">${h.ms} ms${h.err ? ' · err' : ''}</span></div></div>`).join('')}</div></div>` : ''}
@@ -2732,12 +2747,12 @@ function renderOverview(d) {
       const dirs = r.dirs || [], files = r.files || [];
       const box = d.querySelector('#ov-files'); if (!box) return;
       box.innerHTML = (dirs.map(x => `<span class="chip" style="border-color:var(--line2);color:var(--amber)">${esc(x)}/</span>`).join('')
-        + files.map(x => `<span class="chip">${esc(x)}</span>`).join('')) || '<span class="hint">folder kosong</span>';
+        + files.map(x => `<span class="chip">${esc(x)}</span>`).join('')) || '<span class="hint">empty folder</span>';
       const info = d.querySelector('#ov-fs-info');
-      if (info) info.textContent = ` — ${dirs.length} folder, ${files.length} berkas`;
+      if (info) info.textContent = ` — ${dirs.length} folder, ${files.length} files`;
     } catch (e) {
       const box = d.querySelector('#ov-files');
-      if (box) box.innerHTML = '<span class="hint">gagal membaca folder</span>';
+      if (box) box.innerHTML = '<span class="hint">Could not read this folder.</span>';
     }
   })();
 }
@@ -2747,9 +2762,9 @@ function renderPortfolio(d) {
   const ps = state.projects || [];
   const provs = state.providers || [];
   d.innerHTML = `
-    <div class="dhead"><h2>Semua Proyek <span class="tag">${ps.length}</span></h2>
-      <p>Semua konten dikelompokkan per project. Pilih satu project untuk fokus, atau buat yang baru.</p></div>
-    ${ctxStrip(`<button class="exe" id="ov-new">+ PROYEK BARU</button>`)}
+    <div class="dhead"><h2>All Projects <span class="tag">${ps.length}</span></h2>
+      <p>Content is grouped by project. Select one to focus on, or create a new project.</p></div>
+    ${ctxStrip(`<button class="exe" id="ov-new">+ NEW PROJECT</button>`)}
     <div class="wide">
       ${workspaceHero(true)}
       ${ps.length ? `<div class="pgrid">${ps.map(p => {
@@ -2758,16 +2773,16 @@ function renderPortfolio(d) {
         const prms = (p.prompts || []).length;
         return `<div class="pcard" data-open="${esc(p.project)}">
           <div class="t"><b>${esc(p.project)}</b>
-            ${p.active ? '<span class="badge ok">aktif</span>' : ''}
-            ${p.exists === false ? '<span class="badge warn">folder hilang</span>' : ''}</div>
+            ${p.active ? '<span class="badge ok">active</span>' : ''}
+            ${p.exists === false ? '<span class="badge warn">folder missing</span>' : ''}</div>
           <div class="p">${esc(p.path || '')}</div>
-          <div class="m"><span>docs <b>${docs}</b></span><span>catatan <b>${notes}</b></span>
+          <div class="m"><span>docs <b>${docs}</b></span><span>notes <b>${notes}</b></span>
             <span>prompt <b>${prms}</b></span></div>
         </div>`;
-      }).join('')}</div>` : '<div class="hint">Belum ada project terdaftar. Buat project pertama lewat tombol di atas.</div>'}
+      }).join('')}</div>` : '<div class="hint">No projects registered. Create your first project with the button above.</div>'}
       <div class="section">
-        <div class="hint">${provs.length ? ('Provider aktif: ' + esc(provs.join(', ')))
-          : 'Belum ada provider LLM aktif — menjalankan agen akan memakai mode simulasi.'}</div>
+        <div class="hint">${provs.length ? ('Active providers: ' + esc(provs.join(', ')))
+          : 'No active LLM provider — agents will run in simulation mode.'}</div>
       </div>
     </div>`;
   mountOverviewStage();
@@ -2780,7 +2795,7 @@ function renderPortfolio(d) {
 
 /* ---------- boot ---------- */
 async function boot() {
-  $('#pane-detail').innerHTML = '<div class="empty" role="status">Memuat workspace…</div>';
+  $('#pane-detail').innerHTML = '<div class="empty" role="status">Loading workspace…</div>';
   await loadServer();
   const [t, rsc, p] = await Promise.all([api('/tools'), api('/resources'), api('/prompts')]);
   state.tools = t.tools || [];
@@ -2802,7 +2817,7 @@ document.querySelector('#proj-new').addEventListener('click', openNewProject);
 async function startWorkspace() {
   try { await boot(); }
   catch (e) {
-    $('#pane-detail').innerHTML = `<div class="empty"><h2>Workspace belum terhubung</h2><p>${esc(e.message)}</p><button class="exe" id="retry-boot">Coba lagi</button></div>`;
+    $('#pane-detail').innerHTML = `<div class="empty"><h2>Workspace unavailable</h2><p>${esc(e.message)}</p><button class="exe" id="retry-boot">Try again</button></div>`;
     $('#retry-boot').onclick = startWorkspace;
   }
 }
@@ -2819,7 +2834,7 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); e.target.click();
   }
 });
-window.addEventListener('unhandledrejection', event => { toast(event.reason?.message || 'Operasi gagal. Coba lagi.', true); });
+window.addEventListener('unhandledrejection', event => { toast(event.reason?.message || 'Operation failed. Try again.', true); });
 startWorkspace();
 </script>
 </body>

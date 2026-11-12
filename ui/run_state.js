@@ -19,7 +19,7 @@
           provider: agent.provider || 'auto',
           index,
           status: 'queued',
-          detail: 'menunggu giliran',
+          detail: 'waiting in queue',
           startedAt: null,
           finishedAt: null,
           elapsedMs: 0,
@@ -47,30 +47,30 @@
 
     startFirst() {
       const record = this.list().find(item => item.status === 'queued');
-      return record ? this.set(record.name, 'running', 'menganalisis tugas') : null;
+      return record ? this.set(record.name, 'running', 'analyzing the task') : null;
     }
 
     complete(name, output, provider) {
-      const record = this.set(name, 'done', 'hasil diterima', {output: String(output || ''), provider: provider || this.records.get(name)?.provider || 'auto'});
+      const record = this.set(name, 'done', 'result received', {output: String(output || ''), provider: provider || this.records.get(name)?.provider || 'auto'});
       this.startFirst();
       return record;
     }
 
     fail(message) {
       const active = this.list().find(item => item.status === 'running');
-      if (active) this.set(active.name, 'error', message || 'proses gagal');
-      this.list().filter(item => item.status === 'queued').forEach(item => this.set(item.name, 'cancelled', 'tidak dijalankan'));
+      if (active) this.set(active.name, 'error', message || 'process failed');
+      this.list().filter(item => item.status === 'queued').forEach(item => this.set(item.name, 'cancelled', 'not run'));
       this.finishedAt = Date.now();
     }
 
     cancel() {
-      this.list().filter(item => !FINAL.has(item.status)).forEach(item => this.set(item.name, 'cancelled', 'dihentikan pengguna'));
+      this.list().filter(item => !FINAL.has(item.status)).forEach(item => this.set(item.name, 'cancelled', 'stopped by user'));
       this.finishedAt = Date.now();
     }
 
     finish() {
       this.list().filter(item => item.status === 'running').forEach(item => this.set(item.name, 'done', item.detail));
-      this.list().filter(item => item.status === 'queued').forEach(item => this.set(item.name, 'cancelled', 'tidak mendapat turn'));
+      this.list().filter(item => item.status === 'queued').forEach(item => this.set(item.name, 'cancelled', 'did not receive a turn'));
       this.finishedAt = Date.now();
     }
 
