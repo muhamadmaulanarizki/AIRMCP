@@ -356,6 +356,7 @@ def run_agent(name, task, project=None, path=None, context=None,
     for _ in range(max_tool_rounds):
         out = route_chat(messages, tools=use_tools, preferred=agent.get("provider"), model=model)
         provider = out.get("provider")
+        used.extend(out.get("observed_tool_calls") or [])
         tcs = out.get("tool_calls")
         content = out.get("content") or ""
         if not tcs:
@@ -434,6 +435,7 @@ def orchestrate(task, project=None, path=None, team=None, mode="pipeline",
             "title": (get_agent(agent_name) or {}).get("title", agent_name),
             "provider": r.get("provider"),
             "content": r.get("content", ""),
+            "tool_calls": r.get("tool_calls", []),
         }
         transcript.append(entry)
         if on_turn:

@@ -78,10 +78,27 @@ class ReliabilityTests(unittest.TestCase):
     def test_opencode_cli_uses_private_service(self):
         from types import SimpleNamespace
         config = {"command": ["C:/tools/opencode.exe", "run"], "model": "opencode/beam-free"}
-        with patch("subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="ok", stderr="")) as run:
+        output = json.dumps({"type": "text", "part": {"text": "ok"}})
+        with patch("subprocess.run", return_value=SimpleNamespace(returncode=0, stdout=output, stderr="")) as run:
             result = providers._chat_cli(config, [{"role": "user", "content": "hello"}])
         self.assertEqual(result["content"], "ok")
-        self.assertEqual(run.call_args.args[0][:3], ["C:/tools/opencode.exe", "run", "--standalone"])
+        self.assertIn("--standalone", run.call_args.args[0])
+        self.assertEqual(run.call_args.args[0][2:4], ["--format", "json"])
+
+    def test_opencode_tool_events_are_observed(self):
+        output = "\n".join(json.dumps(event) for event in [
+            {"type": "tool_use", "part": {"tool": "execute", "state": {
+                "status": "completed", "input": {"code": "example"},
+                "time": {"start": 100, "end": 125},
+                "metadata": {"metadata": {"toolCalls": [{"tool": "airmcp-solo.read_file", "status": "completed", "input": {"path": "README.md"}}]}}
+            }}},
+            {"type": "text", "part": {"text": "file read"}},
+        ])
+        content, calls = providers._parse_opencode_events(output)
+        self.assertEqual(content, "file read")
+        self.assertEqual([call["name"] for call in calls], ["execute", "airmcp-solo.read_file"])
+        self.assertEqual(calls[0]["duration_ms"], 25)
+        self.assertEqual(calls[1]["source"], "mcp_via_opencode_cli")
 
     def test_production_blocks_dangerous_tool(self):
         with patch.dict(os.environ, {"AIRMCP_PRODUCTION":"1", "AIRMCP_ALLOWED_DANGEROUS_TOOLS":""}):

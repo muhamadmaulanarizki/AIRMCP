@@ -189,9 +189,13 @@ def _chat_cli(prov, messages, timeout=240, model=None):
     argv = list(cmd)
     # OpenCode's shared service may be owned by another session or its configured
     # port may already be occupied. A private server keeps this invocation isolated.
-    if (os.path.basename(str(argv[0])).lower() in {"opencode", "opencode.exe"}
-            and "run" in argv and not any(flag in argv for flag in ("--server", "--standalone"))):
-        argv.insert(argv.index("run") + 1, "--standalone")
+    opencode_run = os.path.basename(str(argv[0])).lower() in {"opencode", "opencode.exe"} and "run" in argv
+    if opencode_run:
+        run_index = argv.index("run") + 1
+        if not any(flag in argv for flag in ("--server", "--standalone")):
+            argv.insert(run_index, "--standalone")
+        if "--format" not in argv:
+            argv[run_index:run_index] = ["--format", "json"]
     if model:
         argv += ["-m", model]
     argv += [_messages_to_prompt(messages)]
@@ -206,7 +210,54 @@ def _chat_cli(prov, messages, timeout=240, model=None):
             f"cli provider gagal (exit {r.returncode}): {err[:300] or '(tanpa output)'}")
     if not text:
         raise RuntimeError(f"cli provider kosong (exit {r.returncode}): {(r.stderr or '')[:300]}")
-    return {"content": text, "tool_calls": None}
+    if opencode_run and "--format" in argv and argv[argv.index("--format") + 1] == "json":
+        content, observed = _parse_opencode_events(text)
+        if not content:
+            raise RuntimeError("OpenCode CLI tidak mengembalikan teks jawaban dalam event JSON")
+        return {"content": content, "tool_calls": None, "observed_tool_calls": observed}
+    return {"content": text, "tool_calls": None, "observed_tool_calls": []}
+
+
+def _parse_opencode_events(output):
+    """Extract final text and completed tool activity from OpenCode JSONL."""
+    texts, observed = [], []
+    for line in output.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        part = event.get("part") or {}
+        if event.get("type") == "text" and isinstance(part.get("text"), str):
+            texts.append(part["text"])
+        if event.get("type") != "tool_use":
+            continue
+        state = part.get("state") or {}
+        timing = state.get("time") or {}
+        record = {
+            "name": part.get("tool", "unknown"),
+            "args": state.get("input") or {},
+            "ok": state.get("status") == "completed",
+            "status": state.get("status", "unknown"),
+            "source": "opencode_cli",
+        }
+        if isinstance(timing.get("start"), (int, float)) and isinstance(timing.get("end"), (int, float)):
+            record["duration_ms"] = max(0, timing["end"] - timing["start"])
+        if state.get("error"):
+            record["error"] = str(state["error"])
+        observed.append(record)
+        metadata = (state.get("metadata") or {}).get("metadata") or {}
+        for call in metadata.get("toolCalls") or []:
+            if isinstance(call, dict):
+                observed.append({
+                    "name": call.get("tool", "unknown"),
+                    "args": call.get("input") or {},
+                    "ok": call.get("status") == "completed",
+                    "status": call.get("status", "unknown"),
+                    "source": "mcp_via_opencode_cli",
+                })
+    return "\n".join(texts).strip(), observed
 
 
 def chat(name, messages, tools=None, timeout=None, model=None):

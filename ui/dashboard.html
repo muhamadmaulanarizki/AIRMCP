@@ -1756,7 +1756,9 @@ function renderOrchestrate(d) {
   const out = () => $('#o-out');
   function turnHTML(x, i) {
     const signals = OrchestrationRun.signals(x.content);
+    const toolCalls = Array.isArray(x.tool_calls) ? x.tool_calls : [];
     const chips = [
+      ...toolCalls.map(call => `<span class="turn-signal ${call.ok?'good':'bad'}" title="${esc([call.source || 'airmcp', call.status || (call.ok?'completed':'failed'), Number.isFinite(call.duration_ms) ? call.duration_ms + ' ms' : ''].filter(Boolean).join(' · '))}">tool · ${esc(call.name || 'unknown')}</span>`),
       ...signals.paths.map(path => `<span class="turn-signal" title="${esc(path)}">file · ${esc(path.split(/[\\/]/).pop())}</span>`),
       ...(signals.tests ? [`<span class="turn-signal ${signals.testState==='fail'?'bad':signals.testState==='pass'?'good':''}">test · ${esc(signals.testState)}</span>`] : []),
       ...(signals.diff ? ['<span class="turn-signal">diff</span>'] : []),
