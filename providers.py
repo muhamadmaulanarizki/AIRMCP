@@ -187,6 +187,11 @@ def _chat_cli(prov, messages, timeout=240, model=None):
     model = model or prov.get("model")
     cwd = prov.get("cwd") or ROOT
     argv = list(cmd)
+    # OpenCode's shared service may be owned by another session or its configured
+    # port may already be occupied. A private server keeps this invocation isolated.
+    if (os.path.basename(str(argv[0])).lower() in {"opencode", "opencode.exe"}
+            and "run" in argv and not any(flag in argv for flag in ("--server", "--standalone"))):
+        argv.insert(argv.index("run") + 1, "--standalone")
     if model:
         argv += ["-m", model]
     argv += [_messages_to_prompt(messages)]

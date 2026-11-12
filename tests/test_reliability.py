@@ -12,6 +12,7 @@ import jsonrpc
 import mcp_server as server
 import dashboard
 import security as security_policy
+import providers
 
 class ReliabilityTests(unittest.TestCase):
     def test_parser_recovers(self):
@@ -73,6 +74,14 @@ class ReliabilityTests(unittest.TestCase):
                 with patch.object(urllib.request, "build_opener", side_effect=RedirectingOpener):
                     with self.assertRaises(PermissionError):
                         server.tool_web_fetch({"url": "https://example.com"})
+
+    def test_opencode_cli_uses_private_service(self):
+        from types import SimpleNamespace
+        config = {"command": ["C:/tools/opencode.exe", "run"], "model": "opencode/beam-free"}
+        with patch("subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="ok", stderr="")) as run:
+            result = providers._chat_cli(config, [{"role": "user", "content": "hello"}])
+        self.assertEqual(result["content"], "ok")
+        self.assertEqual(run.call_args.args[0][:3], ["C:/tools/opencode.exe", "run", "--standalone"])
 
     def test_production_blocks_dangerous_tool(self):
         with patch.dict(os.environ, {"AIRMCP_PRODUCTION":"1", "AIRMCP_ALLOWED_DANGEROUS_TOOLS":""}):

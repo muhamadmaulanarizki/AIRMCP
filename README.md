@@ -220,6 +220,8 @@ Konfigurasi awal berisi manager, architect, dua engineer, reviewer, tester, tech
 
 Tanpa API key, orchestration dapat berjalan dalam mode simulasi agar UI dan alurnya tetap dapat diuji.
 
+Untuk provider OpenCode CLI, AirMCP menjalankan `opencode run --standalone` agar tidak bergantung pada port service bersama. Model dan ketersediaannya dapat berubah; cek dengan `opencode models --standalone` bila agen mengembalikan `Model unavailable`. Tool yang dijalankan secara internal oleh CLI tidak tercatat dalam `tool_calls` AirMCP; field tersebut hanya mencatat panggilan yang lewat executor MCP AirMCP.
+
 ## Provider LLM
 
 Salin `.env.example` ke `.env`, lalu isi provider yang diperlukan:
