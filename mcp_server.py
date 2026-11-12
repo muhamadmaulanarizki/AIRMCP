@@ -104,7 +104,13 @@ def tool_web_fetch(args):
     url = security_policy.ensure_safe_url(url)
     import urllib.request
     req = urllib.request.Request(url, headers={"User-Agent": "AirMCP/1.0"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    class CheckedRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, request, fp, code, msg, headers, newurl):
+            security_policy.ensure_safe_url(newurl)
+            return super().redirect_request(request, fp, code, msg, headers, newurl)
+
+    opener = urllib.request.build_opener(CheckedRedirect)
+    with opener.open(req, timeout=30) as resp:
         body = resp.read(200_000).decode("utf-8", errors="replace")
     return {"url": url, "status": getattr(resp, "status", 200), "length": len(body), "body": body}
 
@@ -473,6 +479,8 @@ def _local_tool_executor(name, args):
     tool = TOOLS.get(name)
     if not tool:
         raise ValueError("tool tidak dikenal: " + str(name))
+    if name in _ORCH_EXCLUDE:
+        raise PermissionError("tool tidak tersedia untuk agent: " + name)
     security_policy.ensure_tool_allowed(name)
     for req in tool.get("inputSchema", {}).get("required", []):
         if req not in (args or {}):
@@ -1444,12 +1452,13 @@ PROMPTS = {
 
 # ---------------------------------------------------------------- dispatchers
 CLIENT_VERSION = [None]  # mutated by initialize handler
+SUPPORTED_PROTOCOL_VERSIONS = {PROTOCOL_VERSION, "2025-11-25"}
 
 
 def initialize_result(params, msg):
     """Minimal, version-adaptive initialize result.
 
-    Echo the client's protocolVersion when provided. Extra capability keys
+    Negotiate only protocol versions covered by this server. Extra capability keys
     (elicitation, subscriptions) are only advertised to 2026-dialect clients —
     strict older parsers reject unknown fields.
     """
@@ -1458,7 +1467,7 @@ def initialize_result(params, msg):
         client_version = params.get("protocolVersion")
         if not client_version and isinstance(params.get("_meta"), dict):
             client_version = params["_meta"].get("io.modelcontextprotocol/protocolVersion")
-    version = client_version if isinstance(client_version, str) and client_version else PROTOCOL_VERSION
+    version = client_version if client_version in SUPPORTED_PROTOCOL_VERSIONS else PROTOCOL_VERSION
     CLIENT_VERSION[0] = version
     capabilities = {
         "tools": {"listChanged": True},

@@ -44,6 +44,36 @@ class ReliabilityTests(unittest.TestCase):
     def test_ping(self):
         self.assertEqual(server.HANDLERS["ping"]({}, {}), {})
 
+    def test_protocol_version_negotiation(self):
+        self.assertEqual(server.initialize_result({"protocolVersion": "2025-11-25"}, {})["protocolVersion"], "2025-11-25")
+        self.assertEqual(server.initialize_result({"protocolVersion": "2099-01-01"}, {})["protocolVersion"], server.PROTOCOL_VERSION)
+        self.assertEqual(server.initialize_result({"protocolVersion": "2026-07-28"}, {})["protocolVersion"], server.PROTOCOL_VERSION)
+
+    def test_agent_cannot_call_excluded_tool(self):
+        with self.assertRaises(PermissionError):
+            server._local_tool_executor("agent_delete", {"name": "manager"})
+        with patch.dict(os.environ, {"AIRMCP_PRODUCTION": "1", "AIRMCP_ALLOWED_DANGEROUS_TOOLS": ""}):
+            with self.assertRaises(PermissionError):
+                server._local_tool_executor("exec_cmd", {"command": "echo blocked"})
+
+    def test_web_fetch_validates_redirect(self):
+        import urllib.request
+        class RedirectingOpener:
+            def __init__(self, *handlers):
+                self.handler = handlers[0]()
+
+            def open(self, request, timeout):
+                return self.handler.redirect_request(request, None, 302, "Found", {}, "http://127.0.0.1/private")
+
+        with patch.dict(os.environ, {"AIRMCP_PRODUCTION": "1", "AIRMCP_ALLOW_PRIVATE_NETWORK": "0"}):
+            def resolve(host, port):
+                address = "127.0.0.1" if host == "127.0.0.1" else "93.184.215.14"
+                return [(None, None, None, None, (address, port))]
+            with patch("socket.getaddrinfo", side_effect=resolve):
+                with patch.object(urllib.request, "build_opener", side_effect=RedirectingOpener):
+                    with self.assertRaises(PermissionError):
+                        server.tool_web_fetch({"url": "https://example.com"})
+
     def test_production_blocks_dangerous_tool(self):
         with patch.dict(os.environ, {"AIRMCP_PRODUCTION":"1", "AIRMCP_ALLOWED_DANGEROUS_TOOLS":""}):
             result = server.handle_tools_call({"name":"exec_cmd","arguments":{"command":"echo blocked"}}, {})

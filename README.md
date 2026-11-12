@@ -163,7 +163,7 @@ Server juga menangani client yang mengirim `initialize` tanpa ID atau dengan `id
 | Notifications | Started event dan subscription listener |
 | Elicitation | Pilihan terstruktur untuk meminta input |
 
-Server menggunakan protocol version `2026-07-28` dan kode error JSON-RPC standar: `-32700`, `-32600`, `-32601`, `-32602`, dan `-32603`.
+Server menggunakan protocol version `2026-07-28` dan kompatibel dengan dialect client `2025-11-25`. Untuk versi lain, server mengembalikan versi utamanya saat handshake. Kode error JSON-RPC standar: `-32700`, `-32600`, `-32601`, `-32602`, dan `-32603`.
 
 ## Tools
 
@@ -256,7 +256,7 @@ Dalam production mode:
 - password adalah `AIRMCP_DASHBOARD_TOKEN`, username boleh bebas;
 - API dibatasi per IP;
 - akses file dibatasi ke project terdaftar dan `AIRMCP_ALLOWED_ROOTS`;
-- `web_fetch` menolak localhost, loopback, link-local, dan private network;
+- `web_fetch` menolak localhost, loopback, link-local, dan private network, termasuk tujuan redirect;
 - response dashboard mengirim security headers;
 - tool berisiko diblokir secara default.
 
