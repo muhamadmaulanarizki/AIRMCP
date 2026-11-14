@@ -157,6 +157,10 @@ Contoh Linux/macOS:
 
 Server juga menangani client yang mengirim `initialize` tanpa ID atau dengan `id: null`.
 
+### Agent skill
+
+The optional [AirMCP Solo agent skill](skills/airmcp-solo/SKILL.md) guides a coding agent through local setup, MCP connection checks, project inspection, and task planning. The skill is a small instruction package; install this repository separately to run the MCP server. A ZIP prepared for Agensi can be built from `skills/airmcp-solo/` with that folder as the single top-level directory. See the [listing draft](docs/agensi-listing.md) for scope and requirements.
+
 ## MCP primitives
 
 | Primitive | Dukungan |
@@ -377,3 +381,7 @@ AirMCP dapat menjalankan command dan membaca file lokal. Jalankan pada mesin dan
 ## Kontribusi
 
 Issue dan pull request diterima. Sertakan deskripsi perubahan, langkah reproduksi untuk bug, dan hasil test yang relevan.
+
+## License
+
+AirMCP Solo is licensed under the [MIT License](LICENSE). Copyright (c) 2026 Muhamad Maulana Rizki.

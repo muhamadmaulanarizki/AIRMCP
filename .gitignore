@@ -31,3 +31,6 @@ tools.db
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Locally built marketplace packages
+/dist/
