@@ -46,7 +46,7 @@ def main():
     send(rpc({"jsonrpc": "2.0", "id": 1, "method": "initialize",
               "params": {"clientInfo": {"name": "eit", "version": "0"}}}))
     resp = recv(1)
-    ok = resp and resp["result"]["protocolVersion"] == "2026-07-28" and "capabilities" in resp["result"]
+    ok = resp and resp["result"]["protocolVersion"] == "2025-11-25" and "capabilities" in resp["result"]
     results.append(("initialize handshake", ok, resp))
     print(f"{PASS if ok else FAIL} initialize -> protocolVersion={resp['result']['protocolVersion']}, "
           f"capabilities={list(resp['result']['capabilities'].keys())}")
@@ -121,9 +121,10 @@ def main():
     send(rpc({"jsonrpc": "2.0", "id": 10, "method": "prompts/get",
               "params": {"name": "code-review", "arguments": {"code": "print(1)"}}}))
     resp = recv(10)
-    ok = "Review the following code" in resp["result"]["messages"][0]["content"]
+    content = resp["result"]["messages"][0]["content"]
+    ok = content["type"] == "text" and "Review the following code" in content["text"]
     results.append(("prompts/get code-review", ok, resp))
-    print(f"{PASS if ok else FAIL} prompts/get -> {resp['result']['messages'][0]['content'][:60]}...")
+    print(f"{PASS if ok else FAIL} prompts/get -> {content['text'][:60]}...")
 
     # 10b. prompts/get per-project template (demo-erp/analisa-po)
     send(rpc({"jsonrpc": "2.0", "id": 101, "method": "prompts/get",
@@ -150,6 +151,29 @@ def main():
     ok = "toolsListChanged" in resp["result"]["accepted"]
     results.append(("subscriptions/listen", ok, resp))
     print(f"{PASS if ok else FAIL} subscriptions -> accepted={resp['result']['accepted']}")
+
+    # Modern MCP uses per-request metadata and discovery, not initialize.
+    modern = {"io.modelcontextprotocol/protocolVersion": "2026-07-28",
+              "io.modelcontextprotocol/clientCapabilities": {},
+              "io.modelcontextprotocol/clientInfo": {"name": "eit", "version": "1"}}
+    send(rpc({"jsonrpc": "2.0", "id": 13, "method": "server/discover", "params": {"_meta": modern}}))
+    resp = recv(13)
+    ok = resp["result"]["resultType"] == "complete" and "2026-07-28" in resp["result"]["supportedVersions"]
+    results.append(("modern discovery", ok, resp))
+    print(f"{PASS if ok else FAIL} server/discover -> {resp['result'].get('supportedVersions')}")
+
+    send(rpc({"jsonrpc": "2.0", "id": 14, "method": "tools/list", "params": {"_meta": modern}}))
+    resp = recv(14)
+    ok = resp["result"]["resultType"] == "complete" and "io.modelcontextprotocol/serverInfo" in resp["result"]["_meta"]
+    results.append(("modern per-request metadata", ok, resp))
+    print(f"{PASS if ok else FAIL} modern tools/list -> resultType={resp['result'].get('resultType')}")
+
+    unsupported = {**modern, "io.modelcontextprotocol/protocolVersion": "2099-01-01"}
+    send(rpc({"jsonrpc": "2.0", "id": 15, "method": "tools/list", "params": {"_meta": unsupported}}))
+    resp = recv(15)
+    ok = resp["error"]["code"] == -32022 and "2026-07-28" in resp["error"]["data"]["supported"]
+    results.append(("unsupported version error", ok, resp))
+    print(f"{PASS if ok else FAIL} unsupported version -> {resp['error'].get('code')}")
 
     # close
     proc.stdin.close()

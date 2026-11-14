@@ -28,6 +28,7 @@ except ImportError:
     pass
 
 import security as security_policy
+import workspace_store
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 HTML_PATH = os.path.join(ROOT, "ui", "dashboard.html")
@@ -57,7 +58,7 @@ class StdioClient:
         self.messages = queue.Queue()
         threading.Thread(target=self._read_stdout, daemon=True).start()
         initialized = self.rpc("initialize", {
-            "protocolVersion": "2026-07-28", "capabilities": {},
+            "protocolVersion": "2025-11-25", "capabilities": {},
             "clientInfo": {"name": "dashboard", "version": "1.0"},
         })
         if "error" in initialized:
@@ -276,7 +277,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             self.close_connection = True
             return None
-        if length < 0 or length > 2_000_000:
+        if length < 0 or length > 16_000_000:
             self.close_connection = True
             return None
         if not length:
@@ -320,7 +321,11 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_file(RUN_STATE_PATH, "text/javascript; charset=utf-8")
         elif path == "/api/server":
             resp = rpc("initialize", {"clientInfo": {"name": "dashboard", "version": "1.0"}})
-            self._send_json(resp.get("result", resp.get("error", {})))
+            info = resp.get("result", resp.get("error", {}))
+            discovery = rpc("server/discover", {"_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28"}})
+            info["supportedVersions"] = discovery.get("result", {}).get("supportedVersions", [])
+            self._send_json(info)
         elif path == "/api/tools":
             resp = rpc("tools/list")
             self._send_json(resp.get("result", resp.get("error", {})))
@@ -339,6 +344,8 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/providers":
             resp = rpc("tools/call", {"name": "provider_list", "arguments": {}})
             self._send_json(_data(resp))
+        elif path == "/api/workspace-state":
+            self._send_json(workspace_store.load())
         elif path == "/api/fs":
             params = parse_qs(urlparse(self.path).query)
             self._send_json(list_fs(params.get("path", [""])[0]))
@@ -434,6 +441,13 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/chat":
                 resp = rpc("tools/call", {"name": "llm_chat", "arguments": body or {}})
                 self._send_json(_unwrap(resp))
+            elif path == "/api/workspace-state":
+                try:
+                    result = workspace_store.save(body.get("section"), body.get("updatedAt"), body.get("value"))
+                except ValueError as exc:
+                    self._send_json({"error": str(exc)}, 400)
+                else:
+                    self._send_json(result)
             elif path == "/api/doc":
                 resp = rpc("tools/call", {"name": "doc_generate", "arguments": body or {}})
                 self._send_json(_unwrap(resp))

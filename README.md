@@ -26,6 +26,10 @@ python dashboard.py
 
 Dashboard tersedia di `http://127.0.0.1:8765`. Port akan berpindah otomatis bila 8765 sedang dipakai.
 
+Chat, draf formulir, hasil eksekusi tool, dan riwayat orkestrasi disimpan otomatis di `workspace_state.sqlite3` (lokal, diabaikan Git) serta salinan browser untuk pemulihan jika refresh terjadi saat penyimpanan masih berjalan. Project, dokumen, catatan, agen, dan provider tetap memakai penyimpanan masing-masing. Run yang terputus oleh refresh ditandai **interrupted**; langkah agen yang sudah tercatat tetap bisa dibaca dari Saved Runs, tetapi proses tidak dijalankan ulang otomatis.
+
+Database aktivitas dapat memuat prompt, argumen, dan output tool. Simpan file ini secara pribadi; `.gitignore` mencegahnya ikut commit.
+
 | Halaman | Fungsi |
 |---|---|
 | Overview | Status server, ringkasan workspace, dan kantor agen 2D |
@@ -163,7 +167,7 @@ Server juga menangani client yang mengirim `initialize` tanpa ID atau dengan `id
 | Notifications | Started event dan subscription listener |
 | Elicitation | Pilihan terstruktur untuk meminta input |
 
-Server menggunakan protocol version `2026-07-28` dan kompatibel dengan dialect client `2025-11-25`. Untuk versi lain, server mengembalikan versi utamanya saat handshake. Kode error JSON-RPC standar: `-32700`, `-32600`, `-32601`, `-32602`, dan `-32603`.
+Server STDIO mendukung dua alur: client MCP `2026-07-28` memakai `server/discover` dan metadata versi pada setiap request; client `2025-11-25` memakai handshake `initialize`. Permintaan versi yang tidak didukung menerima error `-32022` beserta daftar versi yang tersedia. Dashboard memakai alur handshake `2025-11-25` secara internal. Kode error JSON-RPC standar juga didukung: `-32700`, `-32600`, `-32601`, `-32602`, dan `-32603`.
 
 ## Tools
 
@@ -336,11 +340,9 @@ Test UI JavaScript:
 
 ```bash
 node tests/test_dashboard_ui.cjs
-node tests/test_agent_stage.cjs
-node tests/test_run_state.cjs
 ```
 
-Suite mencakup handshake dan dialect MCP, JSON-RPC errors, resources, prompts, tools, dashboard API, orchestration, reliability, production security, dan state UI.
+Suite mencakup alur MCP modern dan handshake lama, JSON-RPC errors, resources, prompts, tools, dashboard API, penyimpanan aktivitas, orchestration, reliability, production security, dan state UI.
 
 ## Troubleshooting
 

@@ -15,6 +15,11 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+MODERN_META = {
+    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+    "io.modelcontextprotocol/clientCapabilities": {},
+    "io.modelcontextprotocol/clientInfo": {"name": "airmcp-cli", "version": "1.0"},
+}
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -38,10 +43,22 @@ class MCPClient:
             text=True, encoding="utf-8", cwd=ROOT, env=env,
         )
         self._id = 0
+        self.modern = False
+        discovery = self.rpc("server/discover", {"_meta": MODERN_META})
+        if "2026-07-28" in discovery.get("result", {}).get("supportedVersions", []):
+            self.modern = True
+        else:
+            initialized = self.rpc("initialize", {"protocolVersion": "2025-11-25",
+                                                  "capabilities": {}, "clientInfo": {"name": "airmcp-cli", "version": "1.0"}})
+            if "error" in initialized:
+                raise RuntimeError(initialized["error"]["message"])
 
     def rpc(self, method, params=None):
         self._id += 1
         req = {"jsonrpc": "2.0", "id": self._id, "method": method}
+        params = dict(params or {})
+        if self.modern:
+            params.setdefault("_meta", MODERN_META)
         if params:
             req["params"] = params
         self.proc.stdin.write(json.dumps(req) + "\n")

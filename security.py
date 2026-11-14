@@ -13,7 +13,7 @@ DANGEROUS_TOOLS = {
     "agent_run", "orchestrate", "llm_chat", "doc_generate",
 }
 SENSITIVE_NAMES = {
-    ".env", "providers.json", "id_rsa", "id_ed25519",
+    ".env", "providers.json", "workspace_state.sqlite3", "id_rsa", "id_ed25519",
 }
 
 
@@ -71,8 +71,10 @@ def allowed_roots():
 
 def _is_sensitive(path):
     name = os.path.basename(path).lower()
+    workspace_db = os.path.basename(os.environ.get("AIRMCP_WORKSPACE_DB") or "workspace_state.sqlite3").lower()
     return (
         name in SENSITIVE_NAMES
+        or name in {workspace_db, workspace_db + "-journal", workspace_db + "-wal", workspace_db + "-shm"}
         or name.startswith(".env.")
         or name.endswith((".pem", ".key", ".p12", ".pfx"))
     )

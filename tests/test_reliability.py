@@ -47,8 +47,11 @@ class ReliabilityTests(unittest.TestCase):
 
     def test_protocol_version_negotiation(self):
         self.assertEqual(server.initialize_result({"protocolVersion": "2025-11-25"}, {})["protocolVersion"], "2025-11-25")
-        self.assertEqual(server.initialize_result({"protocolVersion": "2099-01-01"}, {})["protocolVersion"], server.PROTOCOL_VERSION)
-        self.assertEqual(server.initialize_result({"protocolVersion": "2026-07-28"}, {})["protocolVersion"], server.PROTOCOL_VERSION)
+        self.assertEqual(server.initialize_result({"protocolVersion": "2099-01-01"}, {})["protocolVersion"], "2025-11-25")
+        self.assertEqual(server.initialize_result({"protocolVersion": "2026-07-28"}, {})["protocolVersion"], "2025-11-25")
+        discovery = server.discover_result({}, {})
+        self.assertEqual(discovery["resultType"], "complete")
+        self.assertIn("2026-07-28", discovery["supportedVersions"])
 
     def test_agent_cannot_call_excluded_tool(self):
         with self.assertRaises(PermissionError):
@@ -56,6 +59,12 @@ class ReliabilityTests(unittest.TestCase):
         with patch.dict(os.environ, {"AIRMCP_PRODUCTION": "1", "AIRMCP_ALLOWED_DANGEROUS_TOOLS": ""}):
             with self.assertRaises(PermissionError):
                 server._local_tool_executor("exec_cmd", {"command": "echo blocked"})
+
+    def test_production_hides_activity_database(self):
+        db_path = str(Path(__file__).resolve().parents[1] / "workspace_state.sqlite3")
+        with patch.dict(os.environ, {"AIRMCP_PRODUCTION": "1", "AIRMCP_ALLOWED_ROOTS": str(Path(db_path).parent)}):
+            with self.assertRaises(PermissionError):
+                security_policy.ensure_allowed_path(db_path, allow_missing=True)
 
     def test_web_fetch_validates_redirect(self):
         import urllib.request

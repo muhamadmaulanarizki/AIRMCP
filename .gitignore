@@ -15,6 +15,9 @@ __pycache__/
 tools.db
 *.sqlite
 *.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
 **/.mcp/notes/
 
 # Local projects that are not part of this repository

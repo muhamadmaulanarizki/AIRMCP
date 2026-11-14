@@ -1451,37 +1451,30 @@ PROMPTS = {
 
 
 # ---------------------------------------------------------------- dispatchers
-CLIENT_VERSION = [None]  # mutated by initialize handler
-SUPPORTED_PROTOCOL_VERSIONS = {PROTOCOL_VERSION, "2025-11-25"}
+LEGACY_PROTOCOL_VERSION = "2025-11-25"
+SUPPORTED_PROTOCOL_VERSIONS = (PROTOCOL_VERSION, LEGACY_PROTOCOL_VERSION)
+MODERN_VERSION_KEY = "io.modelcontextprotocol/protocolVersion"
+SERVER_INFO_KEY = "io.modelcontextprotocol/serverInfo"
+
+
+def _capabilities():
+    return {"tools": {"listChanged": True},
+            "resources": {"listChanged": True},
+            "prompts": {"listChanged": True}}
 
 
 def initialize_result(params, msg):
-    """Minimal, version-adaptive initialize result.
-
-    Negotiate only protocol versions covered by this server. Extra capability keys
-    (elicitation, subscriptions) are only advertised to 2026-dialect clients —
-    strict older parsers reject unknown fields.
-    """
-    client_version = None
-    if isinstance(params, dict):
-        client_version = params.get("protocolVersion")
-        if not client_version and isinstance(params.get("_meta"), dict):
-            client_version = params["_meta"].get("io.modelcontextprotocol/protocolVersion")
-    version = client_version if client_version in SUPPORTED_PROTOCOL_VERSIONS else PROTOCOL_VERSION
-    CLIENT_VERSION[0] = version
-    capabilities = {
-        "tools": {"listChanged": True},
-        "resources": {"listChanged": True},
-        "prompts": {"listChanged": True},
-    }
-    if version.startswith("2026"):
-        capabilities["elicitation"] = {}
-        capabilities["subscriptions"] = {"listChanged": True}
+    """Legacy initialize only; modern clients use server/discover instead."""
     return {
-        "protocolVersion": version,
-        "capabilities": capabilities,
+        "protocolVersion": LEGACY_PROTOCOL_VERSION,
+        "capabilities": _capabilities(),
         "serverInfo": SERVER_INFO,
     }
+
+
+def discover_result(params, msg):
+    return {"resultType": "complete", "supportedVersions": list(SUPPORTED_PROTOCOL_VERSIONS),
+            "capabilities": _capabilities(), "_meta": {SERVER_INFO_KEY: SERVER_INFO}}
 
 
 def handle_tools_call(params, msg):
@@ -1543,12 +1536,21 @@ def handle_prompts_get(params, msg):
     if name and "/" in name:
         rendered = projects.render(name, args)
         if rendered is not None:
-            return rendered
+            return _prompt_blocks(rendered)
         raise LookupError(name)
     prompt = PROMPTS.get(name)
     if not prompt:
         raise LookupError(name)
-    return prompt["handler"](args)
+    return _prompt_blocks(prompt["handler"](args))
+
+
+def _prompt_blocks(result):
+    """MCP prompt messages require typed content blocks, not plain strings."""
+    return {**result, "messages": [
+        {**message, "content": {"type": "text", "text": message["content"]}}
+        if isinstance(message.get("content"), str) else message
+        for message in result.get("messages", [])
+    ]}
 
 
 def handle_elicitation_create(params, msg):
@@ -1584,20 +1586,14 @@ def _strip_extras(items, keys=("icons",)):
 
 
 def dialect_items(items):
-    """Adapt resource/prompt/tool definitions to the connected client dialect."""
-    items = _strip_extras(items, ("icons",))
-    ver = CLIENT_VERSION[0] or PROTOCOL_VERSION
-    if ver.startswith("2025") and int(ver.split("-")[1] or 0) < 12 and not ver.startswith("2025-12"):
-        # 2025-11-25 and earlier: "title" was added later — keep, it is legal;
-        # nothing else to cull here for now.
-        return items
-    return items
+    """Keep definitions compatible with strict clients in both eras."""
+    return _strip_extras(items, ("icons",))
 
 
 HANDLERS = {
     "ping": lambda p, m: {},
     "initialize": initialize_result,
-    "server/discover": initialize_result,
+    "server/discover": discover_result,
     "tools/list": lambda p, m: {"tools": list(dialect_items([{k: v for k, v in t.items() if k != "handler"} for t in _visible_tool_defs()]))},
     "tools/call": handle_tools_call,
     "resources/list": lambda p, m: {"resources": list(dialect_items([
@@ -1658,12 +1654,21 @@ def main():
             continue
         handler = HANDLERS.get(method)
         try:
-            if not handler:
-                raise KeyError(method)
             params = msg.get("params", {})
             if not isinstance(params, dict):
                 raise ValueError("params must be an object")
+            meta = params.get("_meta") if isinstance(params.get("_meta"), dict) else {}
+            requested_version = meta.get(MODERN_VERSION_KEY)
+            if requested_version and requested_version not in SUPPORTED_PROTOCOL_VERSIONS:
+                write_message(make_error(req_id, -32022, "Unsupported protocol version", {
+                    "supported": list(SUPPORTED_PROTOCOL_VERSIONS), "requested": requested_version}))
+                continue
+            if not handler:
+                raise KeyError(method)
             result = handler(params, msg)
+            if requested_version == PROTOCOL_VERSION and method != "initialize":
+                result = {**result, "resultType": result.get("resultType", "complete"),
+                          "_meta": {**result.get("_meta", {}), SERVER_INFO_KEY: SERVER_INFO}}
             write_message(make_response(req_id, result))
             _trace(f"OUT resp id={req_id} ok")
         except KeyError:

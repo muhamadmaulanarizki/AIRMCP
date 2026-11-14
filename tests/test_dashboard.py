@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 
@@ -14,10 +15,12 @@ if hasattr(sys.stdout, "reconfigure"):
 
 
 def main():
+    activity_dir = tempfile.TemporaryDirectory()
+    env = {**os.environ, "AIRMCP_WORKSPACE_DB": os.path.join(activity_dir.name, "workspace.sqlite3")}
     proc = subprocess.Popen(
         [sys.executable, "-u", os.path.join(ROOT, "dashboard.py")],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, encoding="utf-8", cwd=ROOT, shell=False,
+        text=True, encoding="utf-8", cwd=ROOT, shell=False, env=env,
     )
     # read the actual bound port from dashboard stdout
     port_used = PORT
@@ -56,7 +59,8 @@ def main():
         results.append(("GET /readyz", get("/readyz").get("status") == "ready"))
 
         server = get("/api/server")
-        results.append(("GET /api/server", server.get("protocolVersion") == "2026-07-28"))
+        results.append(("GET /api/server", server.get("protocolVersion") == "2025-11-25"
+                        and "2026-07-28" in server.get("supportedVersions", [])))
 
         tools = get("/api/tools")
         names = [t["name"] for t in tools.get("tools", [])]
@@ -95,6 +99,11 @@ def main():
         pn = [p["name"] for p in provs.get("providers", [])]
         results.append(("GET /api/providers", {"openai", "deepseek", "hermes"} <= set(pn)))
 
+        post("/api/workspace-state", {"section": "chat", "updatedAt": 1,
+                                        "value": {"msgs": [{"role": "user", "content": "saved across refresh"}]}})
+        results.append(("POST/GET persistent chat",
+                        get("/api/workspace-state")["chat"]["value"]["msgs"][0]["content"] == "saved across refresh"))
+
         projs = get("/api/projects")
         jn = [p["project"] for p in projs.get("projects", [])]
         results.append(("GET /api/projects", "demo-erp" in jn))
@@ -126,6 +135,7 @@ def main():
             proc.wait(timeout=10)
         except Exception:
             proc.kill()
+        activity_dir.cleanup()
 
     passed = 0
     for name, ok in results:

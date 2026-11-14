@@ -652,6 +652,7 @@
     <button id="proj-new">+ New</button>
   </div>
   <div class="top-status">
+    <div class="stat" id="st-save" role="status"><b>saved</b></div>
     <div class="stat" id="st-proto"><b>proto —</b></div>
     <div class="stat" id="st-conn"><b>connecting</b></div>
   </div>
@@ -693,8 +694,98 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
 
 const state = {
   tools:[], resources:[], prompts:[], projects:[], active:"", view:"p-overview",
-  sel:null, hist:[], filter:{}, docs:{}, notes:{}, serverFiles:null
+  sel:null, hist:[], runs:[], drafts:{}, filter:{}, docs:{}, notes:{}, serverFiles:null
 };
+
+const SAVED_SECTIONS = {chat:'chat', history:'hist', runs:'runs', drafts:'drafts'};
+const savedAt = {chat:0, history:0, runs:0, drafts:0};
+let saveQueue = Promise.resolve();
+let lastSaveErrorAt = 0;
+let pendingSaves = 0;
+const failedSaves = new Set();
+function saveStatus(label, isError=false) {
+  const indicator = document.querySelector('#st-save'); if (!indicator) return;
+  indicator.className = 'stat' + (isError ? ' err' : label === 'saved' ? ' on' : '');
+  indicator.innerHTML = '<b>' + esc(label) + '</b>';
+}
+function saveWorkspace(section) {
+  const value = state[SAVED_SECTIONS[section]];
+  const record = {section, updatedAt: Math.max(Date.now(), savedAt[section] + 1), value: JSON.parse(JSON.stringify(value))};
+  savedAt[section] = record.updatedAt;
+  try { localStorage.setItem('airmcp:' + section, JSON.stringify(record)); }
+  catch (e) { /* Server copy remains authoritative when browser storage is full. */ }
+  pendingSaves++;
+  saveStatus('saving');
+  const request = saveQueue.then(() => api('/workspace-state', record));
+  request.then(() => {
+    pendingSaves--; failedSaves.delete(section);
+    if (!pendingSaves) saveStatus(failedSaves.size ? 'save failed' : 'saved', !!failedSaves.size);
+  }, () => {
+    pendingSaves--; failedSaves.add(section);
+    saveStatus('save failed', true);
+  });
+  saveQueue = request.catch(e => {
+    if (Date.now() - lastSaveErrorAt > 5000) {
+      lastSaveErrorAt = Date.now();
+      toast('Could not save workspace activity: ' + e.message, true);
+    }
+  });
+  return request;
+}
+async function loadWorkspace() {
+  let remote = {};
+  try { remote = await api('/workspace-state'); } catch (e) { /* Use the browser copy. */ }
+  for (const [section, key] of Object.entries(SAVED_SECTIONS)) {
+    let local = null;
+    try { local = JSON.parse(localStorage.getItem('airmcp:' + section) || 'null'); } catch (e) {}
+    const server = remote[section];
+    const chosen = local && (!server || local.updatedAt > server.updatedAt) ? local : server;
+    if (!chosen || !Number.isInteger(chosen.updatedAt)) continue;
+    const valid = section === 'chat' ? chosen.value && typeof chosen.value === 'object' && Array.isArray(chosen.value.msgs)
+      : section === 'drafts' ? chosen.value && typeof chosen.value === 'object' && !Array.isArray(chosen.value)
+      : Array.isArray(chosen.value);
+    if (!valid) continue;
+    state[key] = chosen.value;
+    savedAt[section] = chosen.updatedAt;
+    if (chosen === local) saveWorkspace(section);
+  }
+  if (state.chat?.wf && !state.chat.wf.paused) {
+    state.chat.wf = null;
+    state.chat.pending = false;
+    state.chat.msgs.push({role:'assistant', content:'The workflow was interrupted by a refresh. Completed messages remain saved.', meta:'interrupted'});
+    saveWorkspace('chat');
+  } else if (state.chat?.pending) {
+    state.chat.pending = false;
+    state.chat.msgs.push({role:'assistant', content:'The request was interrupted by a refresh. Your message remains saved.', meta:'interrupted'});
+    saveWorkspace('chat');
+  }
+  let interrupted = false;
+  state.runs.forEach(run => {
+    if (run.status === 'running') { run.status = 'interrupted'; run.finishedAt = Date.now(); interrupted = true; }
+  });
+  if (interrupted) saveWorkspace('runs');
+}
+
+function draftKey() { return `${state.active || 'all'}:${state.view}:${state.sel ?? 'main'}`; }
+function captureDrafts() {
+  const fields = {};
+  document.querySelectorAll('#pane-detail input, #pane-detail textarea, #pane-detail select').forEach(el => {
+    if (['hidden', 'password', 'file'].includes(el.type)) return;
+    const id = el.id || el.dataset.k;
+    if (!id) return;
+    fields[id] = el.type === 'checkbox' ? {checked:el.checked} : {value:el.value};
+  });
+  state.drafts[draftKey()] = fields;
+  saveWorkspace('drafts');
+}
+function restoreDrafts() {
+  const fields = state.drafts[draftKey()]; if (!fields) return;
+  document.querySelectorAll('#pane-detail input, #pane-detail textarea, #pane-detail select').forEach(el => {
+    const saved = fields[el.id || el.dataset.k]; if (!saved) return;
+    if (el.type === 'checkbox' && typeof saved.checked === 'boolean') el.checked = saved.checked;
+    else if (typeof saved.value === 'string') el.value = saved.value;
+  });
+}
 
 const ICON_PATHS = {
   'p-overview':'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
@@ -873,7 +964,7 @@ async function api(p, body) {
 /* ---------- JSON syntax highlight (tiny, safe) ---------- */
 function hljson(obj) {
   let raw = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
-  if (raw.length > 100000) raw = raw.slice(0, 100000) + '\n... [dipotong ' + (raw.length - 100000) + ' karakter]';
+  if (raw.length > 100000) raw = raw.slice(0, 100000) + '\n... [' + (raw.length - 100000) + ' characters omitted]';
   raw = esc(raw);
   return raw
     .replace(/&quot;(.+?)&quot;(\s*:)/g, '<span class="k">"$1"</span>$2')
@@ -888,7 +979,7 @@ async function loadServer() {
     const s = await api('/server');
     $('#st-conn').className = 'stat on';
     $('#st-conn').innerHTML = '<b>online</b>';
-    $('#st-proto').innerHTML = '<b>proto ' + esc(s.protocolVersion || '?') + '</b>';
+    $('#st-proto').innerHTML = '<b>MCP ' + esc(s.supportedVersions?.[0] || s.protocolVersion || '?') + '</b>';
     state.server = s;
   } catch (e) {
     $('#st-conn').className = 'stat err';
@@ -1056,7 +1147,7 @@ function renderDetail() {
 
 function renderServer(d) {
   d.innerHTML = `<div class="dhead"><h2>Server capabilities <span class="tag">SYSTEM</span></h2>
-    <p>Initialize handshake result, negotiated protocol version, primitives, and server metadata.</p></div>
+    <p>Supported MCP versions, dashboard handshake, primitives, and server metadata.</p></div>
     <div class="console"><div class="console-h">RAW RESPONSE<span class="tag-ok">200</span></div>
     <pre>${hljson(state.server || {})}</pre></div>`;
 }
@@ -1144,7 +1235,7 @@ function collectArgs(container) {
       const valid = type === 'integer' ? Number.isInteger(value) : type === 'array' ? Array.isArray(value)
         : type === 'object' ? value !== null && typeof value === 'object' && !Array.isArray(value)
         : typeof value === type;
-      if (!valid) throw new Error(inp.dataset.k + ': harus berupa ' + type);
+      if (!valid) throw new Error(inp.dataset.k + ': expected ' + type);
     }
     args[inp.dataset.k] = value;
   });
@@ -1159,12 +1250,15 @@ async function exec(label, path, body, resEl, btn) {
     const out = await api(path, body);
     const ms = Math.round(performance.now() - t0);
     const err = out.isError || out.error || out.code;
-    state.hist.unshift({label, ms, err: !!err});
-    state.hist = state.hist.slice(0, 12);
-    showConsole(resEl, err ? {error: out} : (out.structuredContent ?? out.text ?? out), err, ms);
+    const result = err ? {error: out} : (out.structuredContent ?? out.text ?? out);
+    state.hist.unshift({label, path, request:body, result, ms, err:!!err, at:Date.now()});
+    saveWorkspace('history');
+    showConsole(resEl, result, err, ms);
   } catch (e) {
-    state.hist.unshift({label, ms: Math.round(performance.now() - t0), err: true});
-    showConsole(resEl, {error: e.message}, true, Math.round(performance.now() - t0));
+    const ms = Math.round(performance.now() - t0), result = {error:e.message};
+    state.hist.unshift({label, path, request:body, result, ms, err:true, at:Date.now()});
+    saveWorkspace('history');
+    showConsole(resEl, result, true, ms);
   } finally {
     btn.disabled = false; btn.innerHTML = originalLabel;
   }
@@ -1178,7 +1272,7 @@ function showConsole(resEl, data, isErr, ms) {
       <span class="${isErr ? 'tag-err' : 'tag-ok'}">${isErr ? 'ERR' : 'OK'}</span>
       <span>RESPONSE</span><span class="lat">${ms} ms</span></div>
     <pre>${hljson(data)}</pre>
-    <div class="hist">${state.hist.map(h =>
+    <div class="hist">${state.hist.slice(0, 12).map(h =>
       `<span class="${h.err ? 'err' : ''}"><b>${esc(h.label)}</b> ${h.ms}ms${h.err ? ' err' : ''}</span>`).join('')}</div>`;
   const detail = $('#pane-detail');
   detail.appendChild(div);
@@ -1189,6 +1283,7 @@ let toolEl = null;
 function renderToolDetail(d, t, i) {
   const schema = t.inputSchema || {};
   const required = schema.required || [];
+  const history = state.hist.map((item, index) => ({...item, index})).filter(item => item.label === t.name).slice(0, 20);
   d.innerHTML = `
     <div class="dhead">
       <h2>${esc(t.name)} <span class="tag">TOOL</span></h2>
@@ -1210,7 +1305,13 @@ function renderToolDetail(d, t, i) {
     <div class="actions">
       ${(t.name === 'list_files') ? `<button class="sec" data-pref="path=demo-erp">demo-erp path</button>` : ''}
       <button class="exe" id="exe">EXECUTE <kbd>↵</kbd></button>
-    </div>`;
+    </div>
+    ${history.length ? `<div class="dsection"><div class="dlabel">SAVED RESULTS</div><div class="hist">${history.map(h =>
+      `<button class="sec" data-history="${h.index}">${esc(new Date(h.at || Date.now()).toLocaleString())} · ${h.err?'ERR':'OK'} · ${h.ms} ms</button>`).join('')}</div></div>` : ''}`;
+  d.querySelectorAll('[data-history]').forEach(button => button.addEventListener('click', () => {
+    const item = state.hist[+button.dataset.history];
+    if (item) showConsole(null, item.result ?? {error:'Result was not recorded'}, item.err, item.ms);
+  }));
   $('#exe').addEventListener('click', () => {
     try {
       const args = collectArgs(d);
@@ -1697,13 +1798,44 @@ function renderOrchestrate(d) {
       </div>
 
       <div class="tl" id="o-out"></div>
+      <div class="section"><div class="dlabel">SAVED RUNS</div><div id="o-saved-runs"></div></div>
     </div>`;
   if (stage) stage.destroy();
   stage = new AgentStage($('#stage'));
   stage.setTeam(agents);
   wireCtx(d);
 
-  let activeRun = null, selectedAgent = null;
+  let activeRun = null, selectedAgent = null, currentSavedRun = null;
+  function saveRun(turn) {
+    if (!currentSavedRun || !activeRun) return;
+    if (turn) currentSavedRun.turns.push(turn);
+    currentSavedRun.records = activeRun.list().map(item => ({...item}));
+    currentSavedRun.finishedAt = activeRun.finishedAt;
+    const counts = activeRun.summary();
+    currentSavedRun.status = activeRun.finishedAt
+      ? (counts.error ? 'error' : counts.cancelled && !counts.done ? 'stopped' : 'complete') : 'running';
+    saveWorkspace('runs');
+    renderSavedRuns();
+  }
+  function showSavedRun(saved) {
+    lastTurns = Array.isArray(saved.turns) ? saved.turns : [];
+    lastTranscript = lastTurns;
+    out().innerHTML = lastTurns.map((turn, index) => turnHTML(turn, index)).join('')
+      || '<div class="hint">No agent output was recorded yet.</div>';
+    repBtn.disabled = !lastTurns.length;
+    cap().textContent = saved.status + ' · ' + lastTurns.length + ' turn';
+    $('#o-task').value = saved.task || '';
+  }
+  function renderSavedRuns() {
+    const list = $('#o-saved-runs'); if (!list) return;
+    list.innerHTML = state.runs.length ? state.runs.map((saved, index) =>
+      `<button class="run-agent ${saved.status === 'complete' ? 'done' : saved.status === 'error' ? 'error' : 'queued'}" data-saved-run="${index}"><span class="status-dot"></span><span><strong>${esc(saved.task || 'Untitled run')}</strong><small>${esc(saved.project || 'All projects')} · ${esc(saved.mode || 'pipeline')} · ${esc(saved.status)}</small></span><time>${esc(new Date(saved.startedAt).toLocaleString())}</time></button>`).join('')
+      : '<div class="hint">Runs will appear here automatically.</div>';
+    list.querySelectorAll('[data-saved-run]').forEach(button => button.addEventListener('click', () => {
+      const saved = state.runs[+button.dataset.savedRun];
+      if (saved) { showSavedRun(saved); captureDrafts(); }
+    }));
+  }
   const selectedTeam = () => [...d.querySelectorAll('#o-team .pill.on')].map(x => x.dataset.a);
   const seconds = ms => ms ? (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + 's' : '—';
   function inspectAgent(name) {
@@ -1714,7 +1846,7 @@ function renderOrchestrate(d) {
     const detail = run?.detail || base.detail || 'ready for work';
     const el = $('#o-agent-detail'); if (!el) return;
     el.innerHTML = `<span class="agent-kicker">AGENT DETAIL / ${esc(status.toUpperCase())}</span><h4>${esc(base.title || name)}</h4><p>${esc(detail)}</p><div class="agent-meta"><span>${esc(name)}</span><span>${esc(run?.provider || base.provider || 'auto')}</span>${run?.elapsedMs ? `<span>${seconds(run.elapsedMs)}</span>` : ''}</div>`;
-    d.querySelectorAll('.run-agent').forEach(row => row.classList.toggle('selected', row.dataset.agent === name));
+    d.querySelectorAll('#o-queue .run-agent').forEach(row => row.classList.toggle('selected', row.dataset.agent === name));
   }
   function renderRunBoard() {
     const names = activeRun ? activeRun.order : selectedTeam();
@@ -1727,7 +1859,7 @@ function renderOrchestrate(d) {
     $('#o-queue').innerHTML = rows || '<div class="empty" style="padding:18px">Select at least one agent.</div>';
     const sum = activeRun?.summary();
     $('#o-run-count').textContent = sum ? `${sum.done}/${sum.total} complete` : `${names.length} agents ready`;
-    d.querySelectorAll('.run-agent').forEach(row => row.addEventListener('click', () => {
+    d.querySelectorAll('#o-queue .run-agent').forEach(row => row.addEventListener('click', () => {
       stage.selected = row.dataset.agent; inspectAgent(row.dataset.agent);
     }));
     if (selectedAgent && names.includes(selectedAgent)) inspectAgent(selectedAgent);
@@ -1736,6 +1868,7 @@ function renderOrchestrate(d) {
     if (!activeRun) return;
     activeRun.list().forEach(record => stage.setAgentState(record.name, record.status, record.detail));
     renderRunBoard();
+    saveRun();
   }
   stage.onSelect = agent => inspectAgent(agent.name);
   renderRunBoard();
@@ -1769,6 +1902,8 @@ function renderOrchestrate(d) {
     toast('Run stopped', true);
   });
   const out = () => $('#o-out');
+  renderSavedRuns();
+  if (state.runs.length) showSavedRun(state.runs[0]);
   function turnHTML(x, i) {
     const signals = OrchestrationRun.signals(x.content);
     const toolCalls = Array.isArray(x.tool_calls) ? x.tool_calls : [];
@@ -1808,9 +1943,14 @@ function renderOrchestrate(d) {
     if (!task) { toast('Enter a task first', true); return; }
     if (!team.length) { toast('Select at least one agent', true); return; }
     activeRun = new OrchestrationRun(team, agents, task);
+    currentSavedRun = {id:Date.now() + '-' + Math.random().toString(36).slice(2), task,
+      project:state.active || '', mode:$('#o-mode').value, team, status:'running',
+      startedAt:activeRun.startedAt, finishedAt:null, records:[], turns:[]};
+    state.runs.unshift(currentSavedRun);
     activeRun.startFirst(); selectedAgent = team[0];
     stage.setTeam(agents.filter(a => team.includes(a.name)));
     syncStageRun(); inspectAgent(selectedAgent);
+    await saveQueue;
     if ($('#o-exec').value === 'approval') {
       runBtn.disabled = true; runBtn.innerHTML = '<span class="spinner"></span>RUNNING';
       repBtn.disabled = true; out().innerHTML = ''; cap().textContent = 'waiting...';
@@ -1824,7 +1964,7 @@ function renderOrchestrate(d) {
       return;
     }
     runBtn.disabled = true; runBtn.innerHTML = '<span class="spinner"></span>RUNNING';
-    repBtn.disabled = true; out().innerHTML = ''; cap().textContent = 'menghubungi...';
+    repBtn.disabled = true; out().innerHTML = ''; cap().textContent = 'connecting...';
     startTimer(); stopBtn.disabled = false;
     stage.resetQueue();
     const body = { task, project: state.active || undefined, team: team.join(','), mode: $('#o-mode').value, rounds: +$('#o-rounds').value };
@@ -1861,6 +2001,7 @@ function renderOrchestrate(d) {
           } else if (ev.type === 'turn') {
             tr.push(ev);
             activeRun.complete(ev.agent, ev.content, ev.provider);
+            saveRun(ev);
             syncStageRun();
             out().insertAdjacentHTML('beforeend', turnHTML(ev, tr.length - 1));
             cap().textContent = 'waiting for ' + ev.agent + '... (' + tr.length + '/' + team.length + ')';
@@ -1877,7 +2018,7 @@ function renderOrchestrate(d) {
       } else {
         activeRun.finish(); syncStageRun();
         lastTurns = tr; lastTranscript = tr;
-        cap().textContent = 'complete · ' + tr.length + ' turn' + (simulated ? ' · SIMULASI' : '');
+        cap().textContent = 'complete · ' + tr.length + ' turn' + (simulated ? ' · SIMULATION' : '');
         repBtn.disabled = false;
       }
     } catch (e) {
@@ -1949,6 +2090,7 @@ function renderOrchestrate(d) {
       else activeRun.complete(st.agent, turn.content, turn.provider);
       syncStageRun();
       collected.push(turn);
+      saveRun(turn);
       out.insertAdjacentHTML('beforeend', turnHTML(turn, i));
       const el = document.getElementById('turn-' + i);
       if (el) { el.classList.add('live'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
@@ -2225,11 +2367,12 @@ function renderChat(d) {
         ${m.meta ? `<div class="meta">${esc(m.meta)}</div>` : ''}
       </div>`).join('') || '<div class="chat-welcome"><div class="welcome-mark">✳</div><h3>What would you like to work on?</h3><p>Enter a task or question. The conversation uses the selected project.</p></div>';
     log.scrollTop = state.chat.msgs.length ? log.scrollHeight : 0;
+    saveWorkspace('chat');
   };
   renderMsgs();
-  $('#ch-sys').addEventListener('input', e => { state.chat.system = e.target.value; });
-  $('#ch-mode').addEventListener('change', e => { state.chat.mode = e.target.value; });
-  $('#ch-clear').addEventListener('click', () => { state.chat.msgs = []; renderMsgs(); });
+  $('#ch-sys').addEventListener('input', e => { state.chat.system = e.target.value; saveWorkspace('chat'); });
+  $('#ch-mode').addEventListener('change', e => { state.chat.mode = e.target.value; saveWorkspace('chat'); });
+  $('#ch-clear').addEventListener('click', () => { state.chat.msgs = []; state.chat.wf = null; state.chat.pending = false; renderMsgs(); });
 
   const addWait = (m) => {
     log.insertAdjacentHTML('beforeend', `<div class="msg assistant" id="ch-wait"><div class="who">AI</div><div class="body"><span class="spinner"></span>${esc(m)}</div></div>`);
@@ -2269,8 +2412,11 @@ function renderChat(d) {
   }
   async function wfRun() {
     const w = state.chat.wf; if (!w) return;
+    state.chat.pending = true;
+    saveWorkspace('chat');
     if (w.idx >= w.steps.length) {
       state.chat.wf = null;
+      state.chat.pending = false;
       state.chat.msgs.push({ role: 'assistant', content: 'Workflow complete. All steps have run.', meta: 'workflow' });
       renderMsgs(); toast('Workflow complete');
       return;
@@ -2296,6 +2442,7 @@ function renderChat(d) {
     } catch (e) {
       state.chat.msgs.push({ role: 'assistant', agent: st.agent, content: 'Error: ' + e.message, meta: 'failed' });
     } finally {
+      state.chat.pending = false;
       removeWait(); renderMsgs();
       if (walking) await Promise.race([walking.catch(() => {}), new Promise(r => setTimeout(r, 3000))]);
       if (chatStage && chatStage.byName[ag.name]) {
@@ -2320,6 +2467,8 @@ function renderChat(d) {
     }
   }
   async function singleChat(text) {
+    state.chat.pending = true;
+    saveWorkspace('chat');
     addWait('selecting a model and thinking...');
     let pick = null;
     try { const rr = await api('/route?message=' + encodeURIComponent(text)); pick = rr.structuredContent || rr; } catch (e) {}
@@ -2346,6 +2495,7 @@ function renderChat(d) {
       state.chat.msgs.push({ role: 'assistant', content: 'Error: ' + e.message, meta: 'failed' });
       if (chatStage) $('#ch-stage-cap').textContent = 'error';
     } finally {
+      state.chat.pending = false;
       removeWait(); renderMsgs();
       if (walking) await Promise.race([walking.catch(() => {}), new Promise(r => setTimeout(r, 3000))]);
       const who = pick && pick.agent ? pick.agent : '';
@@ -2357,6 +2507,8 @@ function renderChat(d) {
   async function send() {
     const inp = $('#ch-in'); const text = inp.value.trim(); if (!text) return;
     inp.value = '';
+    captureDrafts();
+    state.chat.pending = true;
     state.chat.msgs.push({ role: 'user', content: text });
     renderMsgs();
     if (state.chat.wf && state.chat.wf.paused) { confirmContinue(text); return; }
@@ -2379,6 +2531,10 @@ function renderChat(d) {
   }
   $('#ch-send').addEventListener('click', send);
   $('#ch-in').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+  if (state.chat.wf?.paused) {
+    const next = state.chat.wf.steps?.[state.chat.wf.idx];
+    if (next) showConfirm(next.agent);
+  }
 }
 
 /* ---------- view: Docs ---------- */
@@ -2796,6 +2952,7 @@ function renderPortfolio(d) {
 /* ---------- boot ---------- */
 async function boot() {
   $('#pane-detail').innerHTML = '<div class="empty" role="status">Loading workspace…</div>';
+  await loadWorkspace();
   await loadServer();
   const [t, rsc, p] = await Promise.all([api('/tools'), api('/resources'), api('/prompts')]);
   state.tools = t.tools || [];
@@ -2814,6 +2971,8 @@ async function boot() {
 
 document.querySelector('#proj-switch').addEventListener('change', e => selectProject(e.target.value));
 document.querySelector('#proj-new').addEventListener('click', openNewProject);
+$('#workspace').addEventListener('input', e => { if (e.target.matches('input, textarea, select')) captureDrafts(); });
+$('#workspace').addEventListener('change', e => { if (e.target.matches('input, textarea, select')) captureDrafts(); });
 async function startWorkspace() {
   try { await boot(); }
   catch (e) {
@@ -2828,6 +2987,7 @@ new MutationObserver(() => {
   document.querySelectorAll('.item[data-i], .pcard[data-open], .acard[data-edit], .acard[data-pedit]').forEach(el => {
     el.tabIndex = 0; el.setAttribute('role', 'button');
   });
+  restoreDrafts();
 }).observe($('#workspace'), {childList:true, subtree:true});
 document.addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.item[data-i], .pcard[data-open], .acard[data-edit], .acard[data-pedit]')) {
