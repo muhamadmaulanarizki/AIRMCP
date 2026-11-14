@@ -31,12 +31,19 @@ def main():
     try:
         discovery = request(1, "server/discover")["result"]
         assert discovery["resultType"] == "complete"
+        assert discovery["ttlMs"] == 0 and discovery["cacheScope"] == "private"
         assert discovery["supportedVersions"][0] == "2026-07-28"
         assert discovery["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "airmcp-solo"
 
         tools = request(2, "tools/list")["result"]
         assert tools["resultType"] == "complete"
+        assert tools["ttlMs"] == 0 and tools["cacheScope"] == "private"
         assert "project_list" in {tool["name"] for tool in tools["tools"]}
+
+        for number, method in enumerate(("prompts/list", "resources/list", "resources/read"), 5):
+            params = {"uri": "airmcp://info"} if method == "resources/read" else {}
+            result = request(number, method, params)["result"]
+            assert result["ttlMs"] == 0 and result["cacheScope"] == "private", method
 
         call = request(3, "tools/call", {"name": "project_list", "arguments": {}})["result"]
         assert call["resultType"] == "complete" and "structuredContent" in call

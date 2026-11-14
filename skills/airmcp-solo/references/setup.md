@@ -40,6 +40,27 @@ Use the configuration syntax supported by the user's client. This generic STDIO 
 
 For Windows, replace `command` with the absolute path to `.venv\\Scripts\\python.exe` and `args` with the absolute path to `mcp_server.py`. Restart the client after editing its MCP configuration. If it does not connect, check the Python path, script path, client logs, and whether its MCP implementation supports this server's negotiated protocol version. Do not claim support for a named client until it has been tested there.
 
+OpenCode uses a different configuration shape. A tested Windows `opencode.json` example is:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "airmcp-solo": {
+        "type": "local",
+        "command": [
+          "C:/absolute/path/to/AIRMCP/.venv/Scripts/python.exe",
+          "C:/absolute/path/to/AIRMCP/mcp_server.py"
+        ],
+        "protocol": "auto"
+      }
+    }
+  }
+}
+```
+
+OpenCode discovers this skill from `.opencode/skills/airmcp-solo/` when installed locally. See the [OpenCode MCP](https://opencode.ai/docs/mcp-servers) and [skills](https://opencode.ai/docs/skills) guides for other supported locations and configuration options.
+
 ## First useful workflow
 
 Example user request: “Connect AirMCP to this coding agent and map the structure of my project at `<project-root>`. Suggest three next tasks based on files you actually inspect.”

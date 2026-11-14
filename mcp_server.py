@@ -1454,6 +1454,9 @@ PROMPTS = {
 LEGACY_PROTOCOL_VERSION = "2025-11-25"
 SUPPORTED_PROTOCOL_VERSIONS = (PROTOCOL_VERSION, LEGACY_PROTOCOL_VERSION)
 MODERN_VERSION_KEY = "io.modelcontextprotocol/protocolVersion"
+MODERN_CACHEABLE_METHODS = {
+    "server/discover", "tools/list", "prompts/list", "resources/list", "resources/read",
+}
 SERVER_INFO_KEY = "io.modelcontextprotocol/serverInfo"
 
 
@@ -1669,6 +1672,8 @@ def main():
             if requested_version == PROTOCOL_VERSION and method != "initialize":
                 result = {**result, "resultType": result.get("resultType", "complete"),
                           "_meta": {**result.get("_meta", {}), SERVER_INFO_KEY: SERVER_INFO}}
+                if method in MODERN_CACHEABLE_METHODS:
+                    result = {**result, "ttlMs": 0, "cacheScope": "private"}
             write_message(make_response(req_id, result))
             _trace(f"OUT resp id={req_id} ok")
         except KeyError:

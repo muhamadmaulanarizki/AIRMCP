@@ -173,6 +173,8 @@ The optional [AirMCP Solo agent skill](skills/airmcp-solo/SKILL.md) guides a cod
 
 Server STDIO mendukung dua alur: client MCP `2026-07-28` memakai `server/discover` dan metadata versi pada setiap request; client `2025-11-25` memakai handshake `initialize`. Permintaan versi yang tidak didukung menerima error `-32022` beserta daftar versi yang tersedia. Dashboard memakai alur handshake `2025-11-25` secara internal. Kode error JSON-RPC standar juga didukung: `-32700`, `-32600`, `-32601`, `-32602`, dan `-32603`.
 
+Respons daftar dan resource pada alur `2026-07-28` menyertakan `ttlMs: 0` dan `cacheScope: "private"` agar client modern dapat memvalidasi hasil tanpa menyimpan cache lintas pengguna.
+
 ## Tools
 
 | Kelompok | Tools |

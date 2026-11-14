@@ -25,7 +25,7 @@ The upload archive is `dist/airmcp-solo.zip`. Rebuild it after changing the skil
 ## Before submitting
 
 - Confirm the requested marketplace fields and terms with the owner. The repository now uses the MIT License.
-- Codex CLI activation and MCP tool calls were verified on Windows. The independent [MCP Inspector CLI](https://github.com/modelcontextprotocol/inspector/blob/main/clients/cli/README.md) also completed `tools/list`, `project_list`, and `list_files` against the STDIO server. This confirms two MCP clients, but only one coding agent. Test skill activation in a second distinct coding agent before claiming broad agent compatibility. The installed VS Code agent extension could not be used for this check because its agent process was reporting repeated crashes.
+- Codex CLI and OpenCode both loaded the skill and successfully called AirMCP MCP tools on Windows. The independent [MCP Inspector CLI](https://github.com/modelcontextprotocol/inspector/blob/main/clients/cli/README.md) also completed `tools/list`, `project_list`, and `list_files` against the STDIO server. Do not claim other agent clients have been tested. The installed VS Code agent extension could not be used for this check because its agent process was reporting repeated crashes.
 - Run the repository's MCP integration tests and inspect the ZIP contents for secrets, temporary files, or machine-specific paths.
 - Use the free listing first. A paid offering needs distinct value and confirmed payout and affiliate terms.
 - Confirm the affiliate terms mentioned in Joeri's email in writing; the listing copy makes no affiliate or earnings promise.
